@@ -105,37 +105,17 @@ This dashboard remains anchored at the top of the screen as users navigate throu
 
 ---
 
-## 📁 Repository Structure
+## 📊 CSV Inventory Data Upload & Analysis
 
-```
-Antigravity Project/
-├── app.py                      # Interactive Streamlit Web Application & Dashboard
-├── inventory_agent.py          # 7-step Agent Pipeline & Advanced NLP Semantic Extraction Engine
-├── inventory_tools.py          # 5 Deterministic Python mathematical calculation tools
-├── requirements.txt            # Project dependencies
-├── tests/
-│   └── test_inventory_tools.py # 67 unit & integration tests covering all models, NLP extraction & 8 verification deliverables
-└── README.md                   # Project documentation
-```
-
----
-
-## 🚀 Getting Started
-
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Run the Test Suite
-```bash
-pytest -v tests/test_inventory_tools.py
-```
-*(All 67 unit and integration tests verify deterministic mathematical accuracy, strict input validation without inventing inputs, terminology synonym recognition, parameter distinction, parenthetical and Greek notation support [e.g. (d), (σd), (L), (σL), (z)], compound ordering cost phrasing, currency symbols [$ / Rs. / ₹], percentage wording, the 8 educational verification deliverables, demand timeframe normalization, and end-to-end agent pipelines.)*
-
-### 3. Launch the Streamlit Web Application
-```bash
-streamlit run app.py
-```
-Open your browser at `http://localhost:8501` to interact with preset supply chain scenarios or enter your own custom natural language inventory scenarios.
+In addition to autonomous natural-language inventory query resolution, the application provides an integrated CSV portfolio analysis pipeline powered by pandas:
+- **Location**: Upload control located under `"Data Upload"` at the bottom of the left sidebar (`Upload CSV File`, accepts `.csv` only).
+- **Processing & Schema Validation**: Validates the presence of `Product`, `Category`, `Units`, and `Unit Cost` columns. Reports missing columns if schema requirements are not met.
+- **Dimensional Metadata**: Displays total row count, column count, and column names alongside the raw uploaded dataset.
+- **Portfolio Analytics**:
+  - Total Units aggregated across all SKUs.
+  - Average Unit Cost across the portfolio.
+  - Highest-volume Product identification with lot size.
+  - Grouped Units by Category with tabular display and bar chart breakdown.
+  - Calculated Column: $\text{Inventory Value} = \text{Units} \times \text{Unit Cost}$.
+  - Total portfolio Inventory Value with currency formatting.
 
