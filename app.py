@@ -26,6 +26,12 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy import stats
 
+# Configure Pandas Styler rendering limit to support large datasets (up to 5M elements)
+try:
+    pd.set_option("styler.render.max_elements", 5_000_000)
+except Exception:
+    pass
+
 from inventory_tools import (
     calculate_eoq,
     calculate_quantity_discount,
@@ -412,7 +418,7 @@ STRESS_TEST_SCENARIOS = {
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("📦 Navigation & Settings")
-st.sidebar.caption("🏷️ Version: `v1.6.0` | Core SemVer | 2026-11-07")
+st.sidebar.caption("🏷️ Version: `v1.6.1` | Core SemVer | 2026-11-07")
 
 st.sidebar.markdown("### 🧭 Workspace View")
 workspace_view = st.sidebar.radio(
@@ -1784,12 +1790,24 @@ def render_portfolio_valuation_display(file, preloaded_df=None):
     # Display Dataframe including the new Inventory Value column with currency formatting
     st.markdown("### 📦 Detailed Inventory Table (with Calculated Inventory Value)")
     st.caption("Calculated column: Inventory Value = Units × Unit Cost")
-    st.dataframe(
-        df_analyzed.style.format(
-            {"Units": "{:,.0f}", "Unit Cost": "${:,.2f}", "Inventory Value": "${:,.2f}"}
-        ),
-        use_container_width=True,
-    )
+    try:
+        portfolio_column_config = {
+            "Units": st.column_config.NumberColumn(label="Units", format="%d"),
+            "Unit Cost": st.column_config.NumberColumn(label="Unit Cost", format="$%.2f"),
+            "Inventory Value": st.column_config.NumberColumn(label="Inventory Value", format="$%.2f"),
+        }
+        st.dataframe(
+            df_analyzed,
+            column_config=portfolio_column_config,
+            use_container_width=True,
+        )
+    except Exception:
+        st.dataframe(
+            df_analyzed.style.format(
+                {"Units": "{:,.0f}", "Unit Cost": "${:,.2f}", "Inventory Value": "${:,.2f}"}
+            ),
+            use_container_width=True,
+        )
 
 
 def _sync_slider_to_num(slider_key: str, num_key: str) -> None:
@@ -2213,17 +2231,64 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
         "Hits Cumulative Total, Hits Cumulative %, Hits Rank, Hits Rank Score, Combined Weighted Score, Final Inventory Class."
     )
 
-    filter_col1, filter_col2 = st.columns([1, 2])
+    filter_col1, filter_col2, filter_col3 = st.columns([1, 2, 1])
     with filter_col1:
         class_filter = st.selectbox(
             "Filter Table by Final Rank:",
             ["All Ranks", "Rank A", "Rank B", "Rank C", "Rank D"],
+            key="classification_rank_filter",
+            help="Filter items by final assigned inventory classification rank (A, B, C, or D).",
         )
+    with filter_col2:
+        search_query = st.text_input(
+            "🔍 Search Products (SKU, Name, Category):",
+            value="",
+            placeholder="Type SKU or product name to filter...",
+            help="Real-time case-insensitive search across Item Number, Item Name, Product, or Category",
+            key="classification_product_search",
+        )
+    with filter_col3:
+        st.write("")
+        st.write("")
+        if search_query or class_filter != "All Ranks":
+            if st.button("❌ Clear Filters", use_container_width=True):
+                st.session_state["classification_rank_filter"] = "All Ranks"
+                st.session_state["classification_product_search"] = ""
+                st.rerun()
 
     filtered_df = df_classified.copy()
     if class_filter != "All Ranks":
         target_cls = class_filter.replace("Rank ", "")
         filtered_df = filtered_df[filtered_df["Final Rank"] == target_cls]
+
+    if search_query.strip():
+        q = search_query.strip().lower()
+        candidate_search_cols = [
+            c for c in ["Item Number", "Item Name", "Product", "Category", "UoM"]
+            if c in filtered_df.columns
+        ]
+        if not candidate_search_cols:
+            candidate_search_cols = filtered_df.select_dtypes(include=["object", "string"]).columns.tolist()
+
+        if candidate_search_cols:
+            mask = False
+            for c in candidate_search_cols:
+                mask = mask | filtered_df[c].astype(str).str.lower().str.contains(q, regex=False, na=False)
+            filtered_df = filtered_df[mask]
+
+    st.caption(
+        f"Displaying **{len(filtered_df):,}** of **{len(df_classified):,}** total items"
+        + (f" matching search '{search_query.strip()}'" if search_query.strip() else "")
+        + (f" in {class_filter}" if class_filter != "All Ranks" else "")
+        + "."
+    )
+
+    if filtered_df.empty:
+        st.warning(
+            f"⚠️ No products found matching search query '{search_query}'"
+            + (f" in {class_filter}" if class_filter != "All Ranks" else "")
+            + ". Try a different keyword or click 'Clear Filters'."
+        )
 
     s_col_name = result.sales_column_used
     h_col_name = result.hits_column_used
@@ -2253,35 +2318,133 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
     remaining_cols = [c for c in filtered_df.columns if c not in actual_display_cols]
     final_table_df = filtered_df[actual_display_cols + remaining_cols]
 
-    format_dict = {
-        s_col_name: "${:,.2f}",
-        h_col_name: "{:,.0f}",
-        "Sales Cumulative Total": "${:,.2f}",
-        "Sales Cumulative %": "{:,.2f}%",
-        "Sales %": "{:,.2f}%",
-        "Cum Sales %": "{:,.2f}%",
-        "Hits Cumulative Total": "{:,.0f}",
-        "Hits Cumulative %": "{:,.2f}%",
-        "Hits %": "{:,.2f}%",
-        "Cum Hits %": "{:,.2f}%",
-        "Combined Weighted Score": "{:,.2f}",
-        "Weighted Score": "{:,.2f}",
+    # High-performance column configuration utilizing native Apache Arrow formatting
+    # This prevents Pandas Styler cell element limit exceptions (StreamlitAPIException > 262,144 cells)
+    # on large datasets (20,000 to 30,000+ SKUs) and provides virtual scrolling with client-side sorting.
+    detailed_column_config = {
+        s_col_name: st.column_config.NumberColumn(
+            label=s_col_name,
+            help="Total annual sales revenue",
+            format="$%.2f",
+        ),
+        h_col_name: st.column_config.NumberColumn(
+            label=h_col_name,
+            help="Total order frequency / pick count",
+            format="%d",
+        ),
+        "Sales Cumulative Total": st.column_config.NumberColumn(
+            label="Sales Cumulative Total",
+            format="$%.2f",
+        ),
+        "Sales Cumulative %": st.column_config.NumberColumn(
+            label="Sales Cumulative %",
+            format="%.2f%%",
+        ),
+        "Sales %": st.column_config.NumberColumn(
+            label="Sales %",
+            format="%.2f%%",
+        ),
+        "Cum Sales %": st.column_config.NumberColumn(
+            label="Cum Sales %",
+            format="%.2f%%",
+        ),
+        "Sales Rank": st.column_config.NumberColumn(
+            label="Sales Rank",
+            format="%d",
+        ),
+        "Sales Rank Score": st.column_config.NumberColumn(
+            label="Sales Rank Score",
+            format="%d",
+        ),
+        "Hits Cumulative Total": st.column_config.NumberColumn(
+            label="Hits Cumulative Total",
+            format="%d",
+        ),
+        "Hits Cumulative %": st.column_config.NumberColumn(
+            label="Hits Cumulative %",
+            format="%.2f%%",
+        ),
+        "Hits %": st.column_config.NumberColumn(
+            label="Hits %",
+            format="%.2f%%",
+        ),
+        "Cum Hits %": st.column_config.NumberColumn(
+            label="Cum Hits %",
+            format="%.2f%%",
+        ),
+        "Hits Rank": st.column_config.NumberColumn(
+            label="Hits Rank",
+            format="%d",
+        ),
+        "Hits Rank Score": st.column_config.NumberColumn(
+            label="Hits Rank Score",
+            format="%d",
+        ),
+        "Combined Weighted Score": st.column_config.NumberColumn(
+            label="Combined Weighted Score",
+            help="Deterministic combined score: (Sales Score × Sales Weight) + (Hits Score × Hits Weight)",
+            format="%.2f",
+        ),
+        "Weighted Score": st.column_config.NumberColumn(
+            label="Weighted Score",
+            format="%.2f",
+        ),
+        "Final Rank": st.column_config.NumberColumn(
+            label="Final Rank",
+            format="%d",
+        ),
     }
 
-    st.dataframe(
-        final_table_df.style.format(format_dict, na_rep="N/A"),
-        use_container_width=True,
-    )
+    try:
+        st.dataframe(
+            final_table_df,
+            column_config=detailed_column_config,
+            use_container_width=True,
+        )
+    except Exception:
+        # Resilient fallback to Pandas Styler with expanded max_elements
+        format_dict = {
+            s_col_name: "${:,.2f}",
+            h_col_name: "{:,.0f}",
+            "Sales Cumulative Total": "${:,.2f}",
+            "Sales Cumulative %": "{:,.2f}%",
+            "Sales %": "{:,.2f}%",
+            "Cum Sales %": "{:,.2f}%",
+            "Hits Cumulative Total": "{:,.0f}",
+            "Hits Cumulative %": "{:,.2f}%",
+            "Hits %": "{:,.2f}%",
+            "Cum Hits %": "{:,.2f}%",
+            "Combined Weighted Score": "{:,.2f}",
+            "Weighted Score": "{:,.2f}",
+        }
+        st.dataframe(
+            final_table_df.style.format(format_dict, na_rep="N/A"),
+            use_container_width=True,
+        )
 
     # Download classified CSV
-    csv_bytes = df_classified.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 Download Classified Inventory CSV",
-        data=csv_bytes,
-        file_name="classified_inventory_results.csv",
-        mime="text/csv",
-        help="Export the complete inventory dataset with all ranks, scores, and weighted classification results.",
-    )
+    col_dl1, col_dl2 = st.columns([1, 1])
+    with col_dl1:
+        csv_bytes = df_classified.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label=f"📥 Download Complete Classified CSV ({len(df_classified):,} SKUs)",
+            data=csv_bytes,
+            file_name="classified_inventory_results_full.csv",
+            mime="text/csv",
+            help="Export the complete inventory dataset with all ranks, scores, and weighted classification results.",
+            use_container_width=True,
+        )
+    with col_dl2:
+        if len(filtered_df) < len(df_classified) and not filtered_df.empty:
+            csv_bytes_filtered = filtered_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label=f"📥 Download Filtered Results ({len(filtered_df):,} SKUs)",
+                data=csv_bytes_filtered,
+                file_name="classified_inventory_filtered.csv",
+                mime="text/csv",
+                help="Export only the currently filtered products matching your search criteria.",
+                use_container_width=True,
+            )
 
     # Verification Checks & Assumptions
     with st.expander(
@@ -2849,7 +3012,7 @@ def render_decision_agent_tabs(pipeline_response: AgentPipelineResponse):
 
 
 # ---------------------------------------------------------------------------
-# Main Page View Routing & Layout Execution (v1.6.0)
+# Main Page View Routing & Layout Execution (v1.6.1)
 # ---------------------------------------------------------------------------
 
 if workspace_view == "📊 Multi-Criteria Classification & Portfolio (CSV)":
@@ -2910,6 +3073,6 @@ elif workspace_view == "📑 Combined View":
 st.markdown("---")
 st.caption(
     "UNCW Masters Program — BAN 517 Supply Chain Analytics | "
-    "Inventory Decision Agent v1.6.0 | "
+    "Inventory Decision Agent v1.6.1 | "
     "Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain"
 )

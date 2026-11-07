@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 
 ---
 
+## [1.6.1] - 2026-11-07
+
+### Added
+- **Detailed Inventory Classification Product Search & Multi-Filter**:
+  - Added real-time product search (`st.text_input`) in the Detailed Inventory Classification Table allowing users to find specific items by SKU / Item Number, Item Name, Product, or Category.
+  - Implemented multi-criteria filter combination linking the Final Rank dropdown (`Rank A`, `Rank B`, `Rank C`, `Rank D`) with real-time text query matching.
+  - Added interactive filter controls including match count status captions (`Displaying X of Y items`), a "❌ Clear Filters" reset button, and empty state warning alerts.
+  - Added dual CSV download options: one-click export for the **Complete Classified CSV** and an export button for **Filtered Results** matching current search queries.
+
+### Fixed
+- **Large Dataset Table Virtualization & Styler Limit Resolution**:
+  - Resolved `StreamlitAPIException: The dataframe has '731744' cells, but the maximum number of cells allowed to be rendered by Pandas Styler is configured to '262144'` triggered when rendering the Detailed Inventory Classification Table on 20,000 to 30,000 SKU datasets.
+  - Configured `pd.set_option("styler.render.max_elements", 5_000_000)` at application module startup to support up to 5,000,000 cells without throwing element threshold exceptions.
+  - Migrated both the Detailed Inventory Classification Table and Portfolio Valuation Table to Streamlit's native `column_config` (`st.column_config.NumberColumn`) with Apache Arrow direct serialization.
+  - Eliminated server-side HTML table string compilation overhead (~60MB payload reduction), providing instantaneous table load times, smooth virtualized scrolling, and mathematical client-side column sorting.
+  - Integrated resilient try/except fallback architecture preserving styled DataFrame rendering in legacy environments.
+- **Test Suite Expansion**:
+  - Expanded automated test suite from 110 to **112 passing tests** (100% pass rate) with dedicated test coverage for large dataset rendering resilience (>300,000 cells), Styler element configuration, and SKU/product keyword search filtering.
+
+---
+
 ## [1.6.0] - 2026-11-07
 
 ### Added
