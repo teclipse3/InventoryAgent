@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 ## [1.5.1] - 2026-11-07
 
 ### Fixed
+- **Customer Question Input Box Population on Scenario Load**:
+  - Resolved issue where clicking "📥 Load Scenario" failed to populate the scenario question into the Customer Question input box (`st.text_area`).
+  - Implemented Streamlit `on_click` callback (`_load_stress_scenario`) updating `st.session_state["main_user_query_textarea"]`, `st.session_state["user_query_text"]`, and `st.session_state["preset_example_selectbox"]` before rerun.
+  - Reset sidebar preset dropdown to `"Select below or write custom question -->"` upon loading a scenario, preventing widget state cache collisions from overwriting loaded stress questions.
 - **EOQ Lead Time NoneType Error in Dashboard**:
   - Resolved `TypeError: '>' not supported between instances of 'NoneType' and 'int'` on `render_persistent_variable_dashboard` triggered when loading EOQ questions without a specified lead time.
   - Implemented null-safe conditional checks for `lead_time_days`: renders `"Not specified"` with subtitle `"Optional delivery window"` when omitted, `"0 days"` for instantaneous delivery, and `"{L:.0f} days"` when explicitly defined.

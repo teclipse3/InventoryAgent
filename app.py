@@ -425,11 +425,45 @@ workspace_view = st.sidebar.radio(
     help="Navigate between the natural language decision agent and the multi-criteria CSV inventory classification engine.",
 )
 
+# ---------------------------------------------------------------------------
+# Session State Question Synchronization & Callbacks
+# ---------------------------------------------------------------------------
+DEFAULT_QUERY = PRESET_QUESTIONS["1. Economic Order Quantity (EOQ)"]
+if "user_query_text" not in st.session_state:
+    st.session_state["user_query_text"] = DEFAULT_QUERY
+if "main_user_query_textarea" not in st.session_state:
+    st.session_state["main_user_query_textarea"] = DEFAULT_QUERY
+if "preset_example_selectbox" not in st.session_state:
+    st.session_state["preset_example_selectbox"] = "Select below or write custom question -->"
+
+
+def _on_preset_example_changed():
+    sel = st.session_state.get("preset_example_selectbox")
+    if sel and sel in PRESET_QUESTIONS:
+        q_text = PRESET_QUESTIONS[sel]
+        st.session_state["user_query_text"] = q_text
+        st.session_state["main_user_query_textarea"] = q_text
+
+
+def _on_textarea_changed():
+    st.session_state["user_query_text"] = st.session_state.get("main_user_query_textarea", "")
+
+
+def _load_stress_scenario(query_to_load: str):
+    st.session_state["user_query_text"] = query_to_load
+    st.session_state["main_user_query_textarea"] = query_to_load
+    st.session_state["preset_example_selectbox"] = "Select below or write custom question -->"
+
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Select Preset Example")
+PRESET_OPTIONS = ["Select below or write custom question -->"] + list(PRESET_QUESTIONS.keys())
+
 selected_preset_label = st.sidebar.selectbox(
     "Choose a sample inventory question:",
-    ["Select below or write custom question -->"] + list(PRESET_QUESTIONS.keys()),
+    PRESET_OPTIONS,
+    key="preset_example_selectbox",
+    on_change=_on_preset_example_changed,
 )
 
 st.sidebar.markdown("---")
@@ -466,20 +500,6 @@ uploaded_file = st.sidebar.file_uploader(
     help="Upload an inventory CSV file with either: (1) Item Number, Item Name, UoM, Sales ($), Hits for multicriteria classification, or (2) Product, Category, Units, Unit Cost for portfolio valuation.",
 )
 
-
-# ---------------------------------------------------------------------------
-# Session State Question Synchronization
-# ---------------------------------------------------------------------------
-if "user_query_text" not in st.session_state:
-    st.session_state["user_query_text"] = PRESET_QUESTIONS["1. Economic Order Quantity (EOQ)"]
-if "last_preset_selection" not in st.session_state:
-    st.session_state["last_preset_selection"] = selected_preset_label
-
-if selected_preset_label != st.session_state["last_preset_selection"]:
-    st.session_state["last_preset_selection"] = selected_preset_label
-    if selected_preset_label in PRESET_QUESTIONS:
-        st.session_state["user_query_text"] = PRESET_QUESTIONS[selected_preset_label]
-
 agent = InventoryDecisionAgent()
 pipeline_response: AgentPipelineResponse = agent.process_query(
     customer_question=st.session_state["user_query_text"],
@@ -505,11 +525,12 @@ if workspace_view in ("🤖 Inventory Decision Agent", "📑 Combined View"):
 
     user_query = st.text_area(
         "Enter a natural-language inventory question:",
-        value=st.session_state["user_query_text"],
         height=110,
         help="Type any supply chain scenario or choose an example from the sidebar.",
         key="main_user_query_textarea",
+        on_change=_on_textarea_changed,
     )
+    # Ensure active session state query text remains strictly synchronized
     st.session_state["user_query_text"] = user_query
 
     col_btn, col_info = st.columns([1, 4])
@@ -543,14 +564,13 @@ if workspace_view in ("🤖 Inventory Decision Agent", "📑 Combined View"):
                 st.markdown(f"**Scenario {s_idx + 1}: {sc['title']}**")
                 st.caption(f"_{sc['query']}_")
             with col_sc_btn:
-                if st.button(
+                st.button(
                     f"📥 Load Scenario {s_idx + 1}",
                     key=f"load_stress_{active_m_key}_{s_idx}",
                     use_container_width=True,
-                ):
-                    st.session_state["user_query_text"] = sc["query"]
-                    st.session_state["last_preset_selection"] = "Select below or write custom question -->"
-                    st.rerun()
+                    on_click=_load_stress_scenario,
+                    args=(sc["query"],),
+                )
             st.markdown("<hr style='margin: 0.35rem 0;'>", unsafe_allow_html=True)
 
 
