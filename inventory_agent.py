@@ -117,70 +117,74 @@ class InventoryNLPParser:
 
     MODEL_PATTERNS = {
         "quantity_discount": [
-            r"quantity\s+discount",
-            r"discount\s+tier",
-            r"price\s+break",
-            r"quantity\s+break",
-            r"volume\s+discount",
-            r"bulk\s+discount",
-            r"price\s+tier",
-            r"tiers?:",
-            r"\$\d+(\.\d+)?\s+if\s+order\s+at\s+least",
-            r"percentage\s+holding\s+cost",
-            r"fixed\s+holding\s+cost",
+            r"quant[i|y]ty\s+discou?nt",
+            r"discou?nt\s+\bt[i|e]ers?\b",
+            r"pr[i|y]ce\s+bre[a]?k",
+            r"quant[i|y]ty\s+bre[a]?k",
+            r"volum[e]?\s+discou?nt",
+            r"bulk\s+discou?nt",
+            r"pr[i|y]ce\s+\bt[i|e]ers?\b",
+            r"\bt[i|e]ers?:",
+            r"(?:[\$€£₹¥]|rs\.?|inr|cad\s*\$?|aud\s*\$?|usd\s*\$?|chf|gbp|eur)?\s*\d+(\.\d+)?\s+if\s+ord[e]?r\s+at\s+least",
+            r"percent[a|e]?ge\s+hold[i]?ng\s+costs?t?",
+            r"fixed\s+hold[i]?ng\s+costs?t?",
         ],
         "fixed_period_review": [
-            r"fixed[\s-]period",
-            r"periodic\s+review",
-            r"order[\s-]up[\s-]to",
+            r"f[i|y]xed[\s-]per[i]?od",
+            r"per[i]?od[i]?c\s+re[v]?e?i[e]?w",
+            r"ord[e]?r[\s-]up[\s-]to",
             r"base\s+stock",
-            r"review\s+period",
-            r"reviewed\s+every",
-            r"review\s+interval",
-            r"target\s+inventory\s+level",
-            r"target\s+inventory",
-            r"inventory\s+position",
-            r"on[\s-]hand.*?on[\s-]order",
+            r"re[v]?e?i[e]?w\s+per[i]?od",
+            r"re[v]?e?i[e]?wed\s+ev[e]?ry",
+            r"re[v]?e?i[e]?ws?\s+inve?nt[o|e]ry\s+ev[e]?ry",
+            r"re[v]?e?i[e]?w\s+int[e]?rval",
+            r"targ[e]?t\s+inve?nt[o|e]ry\s+lev[e]?l",
+            r"targ[e]?t\s+inve?nt[o|e]ry",
+            r"inve?nt[o|e]ry\s+pos[i]?t[i]?on",
+            r"on[\s-]hand.*?on[\s-]ord[e]?r",
         ],
         "newsvendor": [
-            r"newsvendor",
+            r"newsv[e|a]nd[e|o]r",
             r"newsboy",
-            r"single[\s-]period",
-            r"critical\s+fractile",
-            r"critical\s+ratio",
-            r"salvage\s+value",
-            r"markdown\s+price",
-            r"perishable",
-            r"cost\s+of\s+underage",
-            r"underage\s+cost",
-            r"cost\s+of\s+overage",
-            r"overage\s+cost",
-            r"excess\s+cost",
-            r"seasonal\s+(item|demand|product)",
-            r"holiday\s+season",
+            r"s[i|y]ngle[\s-]per[i]?od",
+            r"cr[i]?t[i]?cal\s+fract[i]?le",
+            r"cr[i]?t[i]?cal\s+rat[i]?o",
+            r"salv[a|i]?ge\s+val[u]?e",
+            r"salv[a|i]?ge",
+            r"mark[\s-]?down\s+pr[i|y]ce",
+            r"per[i]?sh[a|i]ble",
+            r"cost\s+of\s+und[e]?rage",
+            r"und[e]?rage\s+costs?t?",
+            r"cost\s+of\s+ov[e]?rage",
+            r"ov[e]?rage\s+costs?t?",
+            r"exc[e]?ss\s+costs?t?",
+            r"season[a]?l\s+(?:item|demm?and|product)",
+            r"hol[i]?day\s+season",
         ],
         "safety_stock_rop": [
-            r"safety\s+stock",
-            r"reorder\s+point",
+            r"saf[e|t]ty\s+stock",
+            r"safty\s+stock",
+            r"safety\s+buffer",
+            r"re[\s-]?ord[e]?r\s+po[i]?nt",
             r"\brop\b",
-            r"service\s+level",
-            r"cycle\s+service",
-            r"lead[\s-]time\s+demand",
-            r"fill\s+rate",
-            r"stockout\s+probability",
-            r"lead[\s-]time\s+standard\s+deviation",
-            r"lead[\s-]time\s+std\s+dev",
+            r"serv[i|e]?[s|c]e\s+lev[e|a]l",
+            r"cyc[l|e]e\s+serv[i|e]?[s|c]e",
+            r"lead[\s-]t[i|y]me\s+demm?and",
+            r"f[i]?ll\s+rate",
+            r"stock[\s-]?out\s+probab[i]?l[i]?ty",
+            r"lead[\s-]t[i|y]me\s+stand[a]?rd\s+dev[i]?at[i]?on",
+            r"lead[\s-]t[i|y]me\s+std\s+dev",
         ],
         "eoq": [
-            r"economic\s+order\s+quantity",
+            r"econom[i]?c\s+ord[e]?r\s+quant[i]?ty",
             r"\beoq\b",
-            r"optimal\s+order\s+quantity",
-            r"optimal\s+lot\s+size",
-            r"order\s+quantity\s+should\s+we\s+place",
-            r"how\s+many\s+units\s+should\s+(we|they)\s+order",
-            r"batch\s+size",
-            r"setup\s+expense",
-            r"cost\s+of\s+placing\s+an\s+order",
+            r"opt[i]?mal\s+ord[e]?r\s+quant[i]?ty",
+            r"opt[i]?mal\s+lot\s+s[i]?ze",
+            r"ord[e]?r\s+quant[i]?ty\s+should\s+we\s+place",
+            r"how\s+many\s+units\s+should\s+(?:we|they)\s+ord[e]?r",
+            r"batch\s+s[i]?ze",
+            r"set[\s-]?up\s+exp[e]?ns[e]?",
+            r"costs?t?\s+of\s+plac[i]?ng\s+an?\s+ord[e]?r",
         ],
     }
 
@@ -205,15 +209,15 @@ class InventoryNLPParser:
                     scores[model_key] += len(matches) * 2.5
 
         # Secondary context cues
-        if "salvage" in text_lower or "unsold" in text_lower or "underage" in text_lower or "overage" in text_lower:
+        if re.search(r"salv[a|i]?ge|unsold|und[e]?rage|ov[e]?rage|perish[a|i]ble|season[a]?l", text_lower):
             scores["newsvendor"] += 4.0
-        if "tier" in text_lower or "price break" in text_lower or "quantity break" in text_lower or "discount" in text_lower:
+        if re.search(r"\bt[i|e]ers?\b|pr[i|y]ce\s*bre[a]?k|quant[i|y]ty\s*bre[a]?k|discou?nt", text_lower):
             scores["quantity_discount"] += 4.0
-        if "review period" in text_lower or "reviewed every" in text_lower or "order-up-to" in text_lower or "target inventory" in text_lower:
+        if re.search(r"re[v]?e?i[e]?w\s*per[i]?od|re[v]?e?i[e]?wed\s*ev[e]?ry|ord[e]?r[\s-]up[\s-]to|targ[e]?t\s*inve?nt[o|e]ry|re[v]?e?i[e]?ws?\s+inve?nt[o|e]ry", text_lower):
             scores["fixed_period_review"] += 4.0
-        if ("reorder point" in text_lower or "safety stock" in text_lower) and "periodic" not in text_lower and "review" not in text_lower:
+        if re.search(r"re[\s-]?ord[e]?r\s*po[i]?nt|saf[e|t]ty\s*stock|safty\s*stock|safety\s*buffer", text_lower) and not re.search(r"per[i]?od[i]?c|re[v]?e?i[e]?w", text_lower):
             scores["safety_stock_rop"] += 4.0
-        if ("setup cost" in text_lower or "ordering cost" in text_lower or "setup expense" in text_lower or "cost per order" in text_lower) and "tier" not in text_lower:
+        if re.search(r"set[\s-]?up\s*costs?t?|ord[e]?r(?:ing)?\s*costs?t?|set[\s-]?up\s*exp[e]?ns[e]?|costs?t?\s*per\s*ord[e]?r|batch\s*s[i]?ze", text_lower) and not re.search(r"\bt[i|e]ers?\b", text_lower):
             scores["eoq"] += 2.0
 
         best_model = max(scores, key=scores.get)
@@ -248,19 +252,25 @@ class InventoryNLPParser:
         text_clean = re.sub(r'(?<=\d),(?=\d)', '', text)
 
         # Generalized vocabulary tokens
-        unit_nouns = r"(?:units|components|parts|items|pieces|cases|boxes|cartons|packages|products|assemblies|devices|kits|bottles|gallons|pounds|lbs|pallets|widgets|jackets|coats|motors|cycles?|bikes?|computers?)"
-        curr_sym = r"(?:\$|rs\.?|inr|₹|€|£)?"
+        unit_nouns = (
+            r"(?:units?|components?|parts?|items?|pieces?|cases?|boxes?|cartons?|packages?|products?|"
+            r"assemblies|devices?|kits?|bottles?|gallons?|pounds?|lbs?|pallets?|widgets?|jackets?|coats?|"
+            r"motors?|cycles?|bikes?|computers?|liters?|litres?|tons?|metric\s+tons?|kilograms?|kg|barrels?|"
+            r"barels?|bbl|meters?|metres?|spools?|drums?|crates?|sacks?|bags?|rolls?|sheets?|tubes?|vials?|"
+            r"hectoliters?|hectolitres?)"
+        )
+        curr_sym = r"(?:[\$€£₹¥]|rs\.?|inr|cad\s*\$?|aud\s*\$?|usd\s*\$?|chf|gbp|eur)?"
         pct_word = r"(?:%|percent|percentage)"
-        annual_timeframes = r"(?<!semi[\s-])(?<!semi)(?<!bi[\s-])(?<!bi)\b(?:annually|per\s+year|each\s+year|a\s+year|every\s+year|per\s+annum|\/\s*year|\/\s*yr\b)"
-        monthly_timeframes = r"(?:monthly|per\s+month|each\s+month|a\s+month|every\s+month|\/\s*month|\/\s*mo\b)"
-        weekly_timeframes = r"(?<!bi[\s-])(?<!bi)\b(?:weekly|per\s+week|each\s+week|a\s+week|every\s+week|\/\s*week|\/\s*wk\b)"
+        annual_timeframes = r"(?<!semi[\s-])(?<!semi)(?<!bi[\s-])(?<!bi)\b(?:annually|anuall?y|annual|anual|yearly|yeerly|per\s+year|each\s+year|a\s+year|every\s+year|per\s+annum|\/\s*year|\/\s*yr\b)"
+        monthly_timeframes = r"(?:monthly|mothly|montly|per\s+month|each\s+month|a\s+month|every\s+month|\/\s*month|\/\s*mo\b)"
+        weekly_timeframes = r"(?<!bi[\s-])(?<!bi)\b(?:weekly|wekly|per\s+week|each\s+week|a\s+week|every\s+week|\/\s*week|\/\s*wk\b)"
         biweekly_timeframes = r"(?:bi[\s-]weekly|biweekly|every\s+two\s+weeks|every\s+2\s+weeks|per\s+two\s+weeks|fortnightly|per\s+fortnight)"
-        quarterly_timeframes = r"(?:quarterly|per\s+quarter|each\s+quarter|a\s+quarter|every\s+quarter|\/\s*quarter|\/\s*qtr\b)"
+        quarterly_timeframes = r"(?:quarterly|quarterley|per\s+quarter|each\s+quarter|a\s+quarter|every\s+quarter|\/\s*quarter|\/\s*qtr\b)"
         semiannual_timeframes = r"(?:semi[\s-]annually|semiannually|semi[\s-]annual|bi[\s-]annually|biannually|every\s+6\s+months|every\s+six\s+months|per\s+half[\s-]year|half[\s-]yearly)"
-        daily_timeframes = r"(?:daily|per\s+day|each\s+day|a\s+day|every\s+day|\/\s*day|per\s+diem)"
+        daily_timeframes = r"(?:daily|dialy|dayly|per\s+day|each\s+day|a\s+day|every\s+day|\/\s*day|per\s+diem)"
 
-        need_verbs = r"(?:needs?|requires?|uses?|consumes?|demands?|orders?|purchases?|sells?|experiences?|expects?|goes\s+through)"
-        need_nouns = r"(?:demand|requirements?|usage|needs?|volume|consumption|sales?|purchases?|throughput)"
+        need_verbs = r"(?:needs?|requir[e]?s?|uses?|consumes?|demm?ands?|ord[e]?rs?|purchases?|sells?|experiences?|expects?|goes\s+through)"
+        need_nouns = r"(?:demm?ands?|requir[e]?ments?|usage|needs?|volume|consumption|sales?|purchases?|throughput)"
         # Variable symbols often written in parentheses or brackets e.g. (D), (d), (S), (H), (C), (L), (P), (M), (IP), (σd), (σL), [L]
         var_sym = r"(?:\s*[\(\[]\s*[\w\s_\'\"\u0370-\u03ff\u1d00-\u1d7f\u2070-\u209f]+\s*[\)\]])?"
         # Flexible intervening item descriptor that ignores operational schedule and carrying rate tokens
@@ -285,31 +295,21 @@ class InventoryNLPParser:
 
         # -------------------------------------------------------------
         # 1. Ordering Cost Synonyms (EOQ & Quantity Discount)
-        # Explicit synonyms:
-        # - ordering cost
-        # - order cost
-        # - setup cost
-        # - setup expense
-        # - cost per order
-        # - cost of placing an order
-        # - ordering/setup cost
-        # - replenishment cost
-        # - cost to place and process each order
-        # - fixed order placement, transportation, and receiving cost
         # -------------------------------------------------------------
         order_cost_patterns = [
-            rf"(?:incurs\s+(?:an?\s+)?(?:fixed\s+)?)?(?:order\s+placement|ordering|setup|replenishment|order)(?:[\w\s,/-]*?)\s+cost{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:cost|expense)\s*(?:of|is)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each\s+time|every\s+time|whenever)\s+(?:an?\s+)?order\s+is\s+placed",
-            rf"(?:the\s+)?cost\s+to\s+(?:place|process|place\s+and\s+process|issue|procure)\s+(?:an?|one|each|every|\d+)?\s*order{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:the\s+)?cost\s+of\s+(?:placing|processing|placing\s+and\s+processing)\s+(?:an?|one|each|every|\d+)?\s*order{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:each\s+)?order\s+costs?{var_sym}\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:to\s+(?:place|order))?",
-            rf"costs?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+order|to\s+place(?:\s+an?\s+order|\s+with\s+(?:the\s+)?supplier)?|(?:each|every)\s+time\s+an?\s+order\s+is\s+placed)",
-            rf"(?:ordering\s*/\s*setup\s*cost|setup\s*/\s*ordering\s*cost){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:cost\s+of\s+placing\s+(?:an?\s+)?order|cost\s+to\s+place\s+(?:an?\s+)?order|cost\s+per\s+order|order\s+cost|ordering\s+cost|order\s+placement\s+cost|order\s+processing\s+cost|procurement\s+cost\s+per\s+order){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:setup\s+cost|setup\s+expense|order\s+expense|replenishment\s+cost|order\s+charge){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:order\s+costs?|ordering\s+costs?){var_sym}\s*(?:would\s+be|of|is|are|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+order)?",
-            rf"(?:with\s+(?:an?\s+)?)?(?:ordering\s+cost|order\s+cost|setup\s+cost|setup\s+expense|cost\s+per\s+order){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+order|cost\s+per\s+order|ordering\s+cost|order\s+cost|setup\s+cost|setup\s+expense|to\s+place\s+(?:an?\s+)?order)",
+            rf"(?:set[\s-]?up\s+expens[e]?|set[\s-]?up\s+costs?t?|expens[e]?|costs?t?)\s+(?:for|to)\s+(?:plac(?:ing)?|replenish(?:ing)?)(?:\s+each|\s+an?)?\s+(?:replenishm?ent\s+)?ord[e]?r{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:incurs\s+(?:an?\s+)?(?:fixed\s+)?)?(?:ord[e]?r\s+placement|ord[e]?r(?:ing)?|set[\s-]?up|replenishm?ent|ord[e]?r)(?:[\w\s,/-]*?)\s+costs?t?{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:costs?t?|expens[e]?)\s*(?:of|is)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each\s+time|every\s+time|whenever)\s+(?:an?\s+)?ord[e]?r\s+is\s+placed",
+            rf"(?:the\s+)?costs?t?\s+to\s+(?:place|process|place\s+and\s+process|issue|procure)\s+(?:an?|one|each|every|\d+)?\s*ord[e]?r{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:the\s+)?costs?t?\s+of\s+(?:plac(?:ing)?|process(?:ing)?|plac(?:ing)?\s+and\s+process(?:ing)?)\s+(?:an?|one|each|every|\d+)?\s*ord[e]?r{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:each\s+)?ord[e]?r\s+costs?t?{var_sym}\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:to\s+(?:place|ord[e]?r))?",
+            rf"costs?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+ord[e]?r|to\s+place(?:\s+an?\s+ord[e]?r|\s+with\s+(?:the\s+)?supplier)?|(?:each|every)\s+time\s+an?\s+ord[e]?r\s+is\s+placed)",
+            rf"(?:ord[e]?r(?:ing)?\s*/\s*set[\s-]?up\s*costs?t?|set[\s-]?up\s*/\s*ord[e]?r(?:ing)?\s*costs?t?){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:costs?t?\s+of\s+plac(?:ing)?\s+(?:an?\s+)?ord[e]?r|costs?t?\s+to\s+place\s+(?:an?\s+)?ord[e]?r|costs?t?\s+per\s+ord[e]?r|ord[e]?r\s+costs?t?|ord[e]?r(?:ing)?\s+costs?t?|ord[e]?r\s+placement\s+costs?t?|ord[e]?r\s+processing\s+costs?t?|procurement\s+costs?t?\s+per\s+ord[e]?r){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:set[\s-]?up\s+costs?t?|set[\s-]?up\s+expens[e]?|ord[e]?r\s+expens[e]?|replenishm?ent\s+costs?t?|ord[e]?r\s+charge){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:ord[e]?r\s+costs?t?|ord[e]?r(?:ing)?\s+costs?t?){var_sym}\s*(?:would\s+be|of|is|are|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+ord[e]?r)?",
+            rf"(?:with\s+(?:an?\s+)?)?(?:ord[e]?r(?:ing)?\s+costs?t?|ord[e]?r\s+costs?t?|set[\s-]?up\s+costs?t?|set[\s-]?up\s+expens[e]?|costs?t?\s+per\s+ord[e]?r){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+ord[e]?r|costs?t?\s+per\s+ord[e]?r|ord[e]?r(?:ing)?\s+costs?t?|ord[e]?r\s+costs?t?|set[\s-]?up\s+costs?t?|set[\s-]?up\s+expens[e]?|to\s+place\s+(?:an?\s+)?ord[e]?r)",
         ]
         for pat in order_cost_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -324,9 +324,9 @@ class InventoryNLPParser:
         # -------------------------------------------------------------
         # 2a. Demand standard deviation
         demand_std_patterns = [
-            rf"(?:standard\s+deviation\s+of\s+(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demand|std\s+dev\s+of\s+(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demand|(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demand\s+standard\s+deviation|(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demand\s+std\s+dev|sigma[\s_]?d|\u03c3[\s_]?d){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-            rf"(?:standard\s+deviation|std\s+dev){var_sym}\s*(?:of|is|equals)?\s*(\d+(?:\.\d+)?)\s*(?:units(?:\/day|\/week|\/month|\/year)?)?(?!\s*(?:of\s+lead[\s-]time|days?|weeks?))",
-            r"(\d+(?:\.\d+)?)\s*units(?:\/day|\/week|\/month|\/year)?\s+(?:standard\s+deviation|std\s+dev)",
+            rf"(?:standard\s+deviation\s+of\s+(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demm?and|std\s+dev\s+of\s+(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demm?and|(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demm?and\s+standard\s+deviation|(?:daily\s+|weekly\s+|monthly\s+|annual\s+)?demm?and\s+std\s+dev|sigma[\s_]?d|\u03c3[\s_]?d){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            rf"(?:standard\s+deviation|std\s+dev){var_sym}\s*(?:of|is|equals)?\s*(\d+(?:\.\d+)?)\s*(?:(?:{unit_nouns})(?:\/day|\/week|\/month|\/year)?)?(?!\s*(?:of\s+lead[d]?[\s-]t[i|y]me|days?|weeks?))",
+            rf"(\d+(?:\.\d+)?)\s*(?:{unit_nouns})(?:\/day|\/week|\/month|\/year)?\s+(?:standard\s+deviation|std\s+dev)",
             r"with\s+(?:a\s+)?std\s+dev\s+(?:of\s+)?(\d+(?:\.\d+)?)",
             r"with\s+(?:a\s+)?standard\s+deviation\s+(?:of\s+)?(\d+(?:\.\d+)?)",
             rf"std\s+dev{var_sym}\s*[:=]?\s*(\d+(?:\.\d+)?)",
@@ -391,7 +391,7 @@ class InventoryNLPParser:
         # 2d. Monthly Demand Patterns (Factor: 12.0)
         if not demand_identified:
             monthly_demand_patterns = [
-                rf"(?:monthly|per[\s-]month)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"(?:monthly|per[\s-]month|mothly|montly)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
                 rf"{need_verbs}\s*(?:an?\s+)?(?:average\s+|mean\s+|estimated\s+)?(?:of\s+)?(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{monthly_timeframes}\b",
                 rf"(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{monthly_timeframes}\b",
                 rf"{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*(\d+(?:\.\d+)?)\s*{item_filler}(?:{monthly_timeframes})",
@@ -419,7 +419,7 @@ class InventoryNLPParser:
         # 2e. Quarterly Demand Patterns (Factor: 4.0)
         if not demand_identified:
             quarterly_demand_patterns = [
-                rf"(?:quarterly|per[\s-]quarter)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"(?:quarterly|per[\s-]quarter|quarterley)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
                 rf"{need_verbs}\s*(?:an?\s+)?(?:average\s+|mean\s+|estimated\s+)?(?:of\s+)?(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{quarterly_timeframes}\b",
                 rf"(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{quarterly_timeframes}\b",
                 rf"{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*(\d+(?:\.\d+)?)\s*{item_filler}(?:{quarterly_timeframes})",
@@ -446,7 +446,7 @@ class InventoryNLPParser:
         # 2f. Weekly Demand Patterns (Factor: 52.0)
         if not demand_identified:
             weekly_demand_patterns = [
-                rf"\b(?<!bi[\s-])(?<!bi)(?:weekly|per[\s-]week)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"\b(?<!bi[\s-])(?<!bi)(?:weekly|per[\s-]week|wekly)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
                 rf"{need_verbs}\s*(?:an?\s+)?(?:average\s+|mean\s+|estimated\s+)?(?:of\s+)?(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{weekly_timeframes}\b",
                 rf"(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{weekly_timeframes}\b",
                 rf"{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*(\d+(?:\.\d+)?)\s*{item_filler}(?:{weekly_timeframes})",
@@ -474,10 +474,10 @@ class InventoryNLPParser:
         # 2g. Daily Demand Patterns (Factor: w_days) — Evaluated when explicitly stated
         if not demand_identified:
             daily_demand_patterns = [
-                rf"(?:daily\s+demand\s+mean|mean\s+daily\s+demand|daily\s+mean\s+demand){var_sym}\s*(?:of|is|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-                rf"(?:average\s+daily\s+demand|daily\s+demand\s+averages?|average\s+daily\s+usage|daily\s+usage){var_sym}\s*(?:of|is|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"(?:daily\s+demm?and\s+mean|mean\s+daily\s+demm?and|daily\s+mean\s+demm?and){var_sym}\s*(?:of|is|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"(?:average\s+daily\s+demm?and|daily\s+demm?and\s+averages?|average\s+daily\s+usage|daily\s+usage|mean\s+daily\s+usage){var_sym}\s*(?:of|is|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
                 rf"(?:have|experiences?|has|expects?)\s+(?:an?\s+)?daily\s+{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-                rf"(?:daily|per[\s-]day)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"(?:daily|per[\s-]day|dialy|dayly)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
                 rf"{need_verbs}\s*(?:an?\s+)?(?:average\s+|mean\s+|estimated\s+)?(?:of\s+)?(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{daily_timeframes}\b",
                 rf"(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{daily_timeframes}\b",
             ]
@@ -501,8 +501,8 @@ class InventoryNLPParser:
         # 2h. Annual Demand Patterns (Factor: 1.0)
         if not demand_identified:
             annual_demand_patterns = [
-                rf"\b(?<!semi[\s-])(?<!semi)(?<!bi[\s-])(?<!bi)(?:annual|yearly|per[\s-]year|per[\s-]annum)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-                rf"(?:have|experiences?|has|expects?)\s+(?:an?\s+)?(?:annual|yearly)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"\b(?<!semi[\s-])(?<!semi)(?<!bi[\s-])(?<!bi)(?:annual|anual|yearly|yeerly|per[\s-]year|per[\s-]annum)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"(?:have|experiences?|has|expects?)\s+(?:an?\s+)?(?:annual|anual|yearly|yeerly)\s*{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
                 rf"{need_verbs}\s*(?:an?\s+)?(?:average\s+|mean\s+|estimated\s+)?(?:of\s+)?(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{annual_timeframes}\b",
                 rf"(?<!\$)\b(\d+(?:\.\d+)?)\s*{item_filler}{annual_timeframes}\b",
                 rf"{need_nouns}{var_sym}\s*(?:of|is|are|equals|averages)?\s*(\d+(?:\.\d+)?)\s*{item_filler}(?:{annual_timeframes})",
@@ -527,9 +527,9 @@ class InventoryNLPParser:
         if "demand" not in inputs:
             general_mean_patterns = [
                 rf"{need_verbs}\s*(?:an?\s+)?(?:average\s+|mean\s+|estimated\s+)?(?:of\s+)?(\d+(?:\.\d+)?)\s*{unit_nouns}\b(?!\s*%)",
-                rf"(?:demand{var_sym}\s+is\s+normal\s+with\s+mean|with\s+(?:a\s+)?mean\s+demand{var_sym}\s+of|(?:with\s+)?mean\s*(?:demand{var_sym})?\s*(?:of|is|equals)?)\s*[:=]?\s*(\d+(?:\.\d+)?)",
-                rf"(?:average\s+demand{var_sym}|mean\s+demand{var_sym}|expected\s+demand{var_sym})\s*(?:of|is|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-                rf"\bdemand{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:{unit_nouns})?(?!\s*(?:standard\s+deviation|std\s+dev))",
+                rf"(?:demm?and{var_sym}\s+is\s+normal\s+with\s+mean|with\s+(?:a\s+)?mean\s+demm?and{var_sym}\s+of|(?:with\s+)?mean\s*(?:demm?and{var_sym})?\s*(?:of|is|equals)?)\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"(?:average\s+demm?and{var_sym}|mean\s+demm?and{var_sym}|expected\s+demm?and{var_sym})\s*(?:of|is|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                rf"\bdemm?and{var_sym}\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:{unit_nouns})?(?!\s*(?:standard\s+deviation|std\s+dev))",
             ]
             for pat in general_mean_patterns:
                 m = re.search(pat, text_clean, re.IGNORECASE)
@@ -552,9 +552,9 @@ class InventoryNLPParser:
         # -------------------------------------------------------------
         # 3a. Lead-time standard deviation first
         lt_std_patterns = [
-            rf"(?:standard\s+deviation\s+of\s+lead[\s-]time|std\s+dev\s+of\s+lead[\s-]time|lead[\s-]time\s+standard\s+deviation|lead[\s-]time\s+std\s+dev|lead[\s-]time\s+variability|sigma[\s_]?l|\u03c3[\s_]?l){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-            rf"lead[\s-]time\s+(?:varies|fluctuates)\s+with\s+(?:a\s+)?standard\s+deviation\s+(?:of|is)?\s*(\d+(?:\.\d+)?)",
-            rf"(?:with\s+(?:a\s+)?)lead[\s-]time\s+(?:standard\s+deviation|std\s+dev){var_sym}\s*(?:of|is)?\s*(\d+(?:\.\d+)?)",
+            rf"(?:standard\s+deviation\s+of\s+lead[d]?[\s-]t[i|y]me|std\s+dev\s+of\s+lead[d]?[\s-]t[i|y]me|lead[d]?[\s-]t[i|y]me\s+standard\s+deviation|lead[d]?[\s-]t[i|y]me\s+std\s+dev|lead[d]?[\s-]t[i|y]me\s+variability|sigma[\s_]?l|\u03c3[\s_]?l){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            rf"lead[d]?[\s-]t[i|y]me\s+(?:varies|fluctuates)\s+with\s+(?:a\s+)?standard\s+deviation\s+(?:of|is)?\s*(\d+(?:\.\d+)?)",
+            rf"(?:with\s+(?:a\s+)?)lead[d]?[\s-]t[i|y]me\s+(?:standard\s+deviation|std\s+dev){var_sym}\s*(?:of|is)?\s*(\d+(?:\.\d+)?)",
         ]
         for pat in lt_std_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -564,10 +564,10 @@ class InventoryNLPParser:
 
         # 3b. Average lead time
         lead_time_patterns = [
-            rf"(?:delivery\s+lead[\s-]time|replenishment\s+lead[\s-]time|lead[\s-]time|delivery\s+time){var_sym}\s*averages?\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?",
-            rf"(?:average\s+lead[\s-]time|mean\s+lead[\s-]time|expected\s+lead[\s-]time|delivery\s+lead[\s-]time|replenishment\s+lead[\s-]time|lead[\s-]time){var_sym}\s*(?:of|is|are|equals|averages)?\s*(?:constant\s+at|fixed\s+at|estimated\s+at|approximately)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?\b(?!\s*(?:standard\s+deviation|std\s+dev))",
-            rf"supplier\s+(?:has\s+a\s+lead\s+time\s+of|takes){var_sym}\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?",
-            rf"(?:lead\s+time|delivery\s+time){var_sym}\s*(?:of|is|equals)?\s*(?:constant\s+at|fixed\s+at|estimated\s+at|approximately)?\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?",
+            rf"(?:deliv[e]?ry\s+lead[d]?[\s-]t[i|y]me|replenishm?ent\s+lead[d]?[\s-]t[i|y]me|lead[d]?[\s-]t[i|y]me|deliv[e]?ry\s+t[i|y]me){var_sym}\s*averages?\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?",
+            rf"(?:average\s+lead[d]?[\s-]t[i|y]me|mean\s+lead[d]?[\s-]t[i|y]me|expected\s+lead[d]?[\s-]t[i|y]me|deliv[e]?ry\s+lead[d]?[\s-]t[i|y]me|replenishm?ent\s+lead[d]?[\s-]t[i|y]me|lead[d]?[\s-]t[i|y]me){var_sym}\s*(?:of|is|are|equals|averages)?\s*(?:constant\s+at|fixed\s+at|estimated\s+at|approximately)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?\b(?!\s*(?:standard\s+deviation|std\s+dev))",
+            rf"supplier\s+(?:has\s+a\s+lead\s+time\s+of|takes|replenishment\s+lead[\s-]time\s+averages?){var_sym}\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?",
+            rf"(?:lead[d]?\s*t[i|y]me|deliv[e]?ry\s+t[i|y]me){var_sym}\s*(?:of|is|equals)?\s*(?:constant\s+at|fixed\s+at|estimated\s+at|approximately)?\s*(\d+(?:\.\d+)?)\s*(?:business\s+|working\s+)?(days?|weeks?|months?)?",
         ]
         for pat in lead_time_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -584,8 +584,8 @@ class InventoryNLPParser:
         # Cycle Service Level (CSL) / in-stock probability / z-statistic
         # -------------------------------------------------------------
         sl_patterns = [
-            rf"(?:target\s+cycle\s+service\s+level|desired\s+cycle\s+service\s+level|cycle\s+service\s+level|target\s+service\s+level|desired\s+service\s+level|service\s+level|csl|in[\s-]stock\s+probability|service\s+factor){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(%)?",
-            rf"(\d+(?:\.\d+)?)\s*%\s*(?:target\s+cycle\s+service\s+level|cycle\s+service\s+level|service\s+level|csl|in[\s-]stock\s+probability)",
+            rf"(?:target\s+cycle\s+serv[i|e]?[s|c]e\s+lev[e|a]l|desired\s+cycle\s+serv[i|e]?[s|c]e\s+lev[e|a]l|cycle\s+serv[i|e]?[s|c]e\s+lev[e|a]l|target\s+serv[i|e]?[s|c]e\s+lev[e|a]l|desired\s+serv[i|e]?[s|c]e\s+lev[e|a]l|serv[i|e]?[s|c]e\s+lev[e|a]l|csl|in[\s-]stock\s+probability|service\s+factor){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(%)?",
+            rf"(\d+(?:\.\d+)?)\s*%\s*(?:target\s+cycle\s+serv[i|e]?[s|c]e\s+lev[e|a]l|cycle\s+serv[i|e]?[s|c]e\s+lev[e|a]l|serv[i|e]?[s|c]e\s+lev[e|a]l|csl|in[\s-]stock\s+probability)",
         ]
         for pat in sl_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -610,21 +610,16 @@ class InventoryNLPParser:
         # -------------------------------------------------------------
         # 5. Holding Cost: Fixed vs Percentage Holding Cost
         # Distinguish:
-        # - fixed holding cost ($/unit/year)
-        # - percentage holding cost (% of price)
-        # -------------------------------------------------------------
-        # 5. Holding Cost: Fixed vs Percentage Holding Cost
-        # Distinguish:
-        # - fixed holding cost ($/unit/year, Rs./unit/year)
+        # - fixed holding cost ($/unit/year, Rs./unit/year, €/unit/year, etc.)
         # - percentage holding cost (% of price)
         # -------------------------------------------------------------
         # Percentage holding cost
         holding_pct_patterns = [
-            rf"(?:percentage\s+holding\s+cost|annual\s+holding\s+cost\s+rate|holding\s+cost\s+rate|carrying\s+cost\s+rate|carrying\s+rate|holding\s+rate|annual\s+holding\s+cost|annual\s+carrying\s+cost|carrying\s+charge|annual\s+carrying\s+charge|carrying\s+cost|holding\s+cost){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:of\s+(?:unit\s+)?(?:cost|price))?\s*{pct_word}",
-            rf"(?:holding\s+cost|carrying\s+cost){var_sym}\s*(?:rate\s+)?(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*{pct_word}",
-            rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:cost|price))?\s*(?:annual\s+holding\s+cost|annual\s+holding|carrying\s+cost|holding\s+cost|percentage\s+holding\s+cost|cost\s+of\s+capital|carrying\s+charge)",
-            rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:cost|price))",
-            rf"holding\s+cost\s+(?:rate\s+)?(?:is|equals)?\s*(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:cost|price))?",
+            rf"(?:percent[a|e]?ge\s+hold[i]?ng\s+costs?t?|annual\s+hold[i]?ng\s+costs?t?\s+rate|anual\s+hold[i]?ng\s+costs?t?\s+rate|hold[i]?ng\s+costs?t?\s+rate|car?ry?ing\s+costs?t?\s+rate|car?ry?ing\s+rate|hold[i]?ng\s+rate|annual\s+hold[i]?ng\s+costs?t?|anual\s+hold[i]?ng\s+costs?t?|annual\s+car?ry?ing\s+costs?t?|anual\s+car?ry?ing\s+costs?t?|car?ry?ing\s+chag?re|car?ry?ing\s+charge|annual\s+car?ry?ing\s+charge|anual\s+car?ry?ing\s+charge|car?ry?ing\s+costs?t?|hold[i]?ng\s+costs?t?){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))?\s*{pct_word}",
+            rf"(?:hold[i]?ng\s+costs?t?|car?ry?ing\s+costs?t?){var_sym}\s*(?:rate\s+)?(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*{pct_word}",
+            rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))?\s*(?:annual\s+hold[i]?ng\s+costs?t?|anual\s+hold[i]?ng\s+costs?t?|annual\s+hold[i]?ng|car?ry?ing\s+costs?t?|hold[i]?ng\s+costs?t?|percent[a|e]?ge\s+hold[i]?ng\s+costs?t?|costs?t?\s+of\s+capital|car?ry?ing\s+chag?re|car?ry?ing\s+charge)",
+            rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))",
+            rf"hold[i]?ng\s+costs?t?\s+(?:rate\s+)?(?:is|equals)?\s*(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))?",
         ]
         for pat in holding_pct_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -636,10 +631,10 @@ class InventoryNLPParser:
 
         # Fixed holding cost
         holding_dollar_patterns = [
-            rf"fixed\s+holding\s+cost{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*{pct_word})",
-            rf"(?<!percentage\s)(?<!rate\s)(?:holding\s+costs?|carrying\s+costs?|storage\s+costs?|cost\s+to\s+hold|cost\s+to\s+store){var_sym}\s*(?:of|is|are|equals|would\s+be)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*{pct_word})",
-            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+unit\s+per\s+year|per\s+unit\s+annually|per\s+unit\s+per\s+annum|per\s+unit\s+to\s+hold|per\s+unit\s+to\s+store|fixed\s+holding\s+cost)",
-            rf"costs?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+unit\s+per\s+year|per\s+unit\s+annually|per\s+unit\s+per\s+annum|per\s+unit\s+to\s+(?:hold|store|carry))",
+            rf"fixed\s+hold[i]?ng\s+costs?t?{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*{pct_word})",
+            rf"(?<!percentage\s)(?<!rate\s)(?:hold[i]?ng\s+costs?t?|car?ry?ing\s+costs?t?|storage\s+costs?t?|costs?t?\s+to\s+hold|costs?t?\s+to\s+store|car?ry?ing\s+chag?re|car?ry?ing\s+charge){var_sym}\s*(?:of|is|are|equals|would\s+be)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*{pct_word})",
+            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+(?:unit|{unit_nouns})\s+per\s+year|per\s+(?:unit|{unit_nouns})\s+annually|per\s+(?:unit|{unit_nouns})\s+per\s+annum|per\s+(?:unit|{unit_nouns})\s+to\s+hold|per\s+(?:unit|{unit_nouns})\s+to\s+store|fixed\s+hold[i]?ng\s+costs?t?)",
+            rf"costs?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:per\s+(?:unit|{unit_nouns})\s+per\s+year|per\s+(?:unit|{unit_nouns})\s+annually|per\s+(?:unit|{unit_nouns})\s+per\s+annum|per\s+(?:unit|{unit_nouns})\s+to\s+(?:hold|store|carry))",
         ]
         for pat in holding_dollar_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -673,8 +668,8 @@ class InventoryNLPParser:
         # -------------------------------------------------------------
         # Underage / Shortage Cost
         underage_patterns = [
-            rf"(?:underage\s+cost|cost\s+of\s+underage|shortage\s+cost|cost\s+of\s+shortage|lost\s+profit\s+per\s+unit){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:shortage\s+penalty|penalty\s+cost|goodwill\s+penalty|goodwill\s+cost){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:und[e]?rage\s+costs?t?|costs?t?\s+of\s+und[e]?rage|shortage\s+costs?t?|costs?t?\s+of\s+shortage|lost\s+profit\s+per\s+(?:unit|{unit_nouns})){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:shortage\s+penalty|penalty\s+costs?t?|goodwill\s+penalty|goodwill\s+costs?t?){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
         ]
         for pat in underage_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -685,7 +680,7 @@ class InventoryNLPParser:
 
         # Overage / Excess Cost
         overage_patterns = [
-            rf"(?:overage\s+cost|cost\s+of\s+overage|excess\s+cost|cost\s+of\s+excess|disposal\s+cost|loss\s+per\s+unsold\s+unit){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:ov[e]?rage\s+costs?t?|costs?t?\s+of\s+ov[e]?rage|excess\s+costs?t?|costs?t?\s+of\s+excess|disposal\s+costs?t?|loss\s+per\s+unsold\s+(?:unit|{unit_nouns})){var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
         ]
         for pat in overage_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -695,11 +690,12 @@ class InventoryNLPParser:
 
         # Unit purchase price / purchase cost
         unit_cost_patterns = [
-            rf"(?:unit\s+purchase\s+price|purchase\s+cost|unit\s+cost|item\s+cost|cost\s+per\s+unit|acquisition\s+cost|manufacturing\s+cost|cost\s+to\s+produce|wholesale\s+cost|wholesale\s+price|purchase\s+price|baseline\s+unit\s+purchase\s+price|baseline\s+price|base\s+price|regular\s+price|standard\s+price){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:each|per)\s+(?:{unit_nouns}|[a-zA-Z-]{{2,25}})\s+costs?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?<!order )(?<!orders )(?<!ordering )\bcosts?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+unit|to\s+manufacture|to\s+produce|to\s+make|to\s+buy|to\s+purchase)?(?!\s*(?:per\s+order|to\s+place))",
-            rf"(?:purchased?|bought)\s+(?:for|at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+unit)?",
-            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:to\s+purchase|unit\s+cost|purchase\s+cost|cost\s+per\s+unit|unit\s+purchase\s+price|per\s+unit\s+purchase|wholesale)",
+            rf"(?:unit\s+purchase\s+price|purchase\s+costs?t?|unit\s+costs?t?|item\s+costs?t?|costs?t?\s+per\s+(?:unit|{unit_nouns})|acquisition\s+costs?t?|manufacturing\s+costs?t?|costs?t?\s+to\s+produce|costs?t?\s+to\s+manufacture|wholesale\s+costs?t?|wholesale\s+price|purchase\s+price|baseline\s+unit\s+purchase\s+price|baseline\s+price|base\s+price|regular\s+price|standard\s+price){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:buys?|purchas[e]?s?|purchased|bought)\s+(?:[\w\s]{{0,35}}?\s+)?(?:for|at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:each|per)\s+(?:{unit_nouns}|[a-zA-Z-]{{2,25}})\s+costs?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?<!order )(?<!orders )(?<!ordering )(?<!ordr )(?<!ordrs )(?<!ordring )\bcosts?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns})|to\s+manufacture|to\s+produce|to\s+make|to\s+buy|to\s+purchase)?(?!\s*(?:per\s+ord[e]?r|to\s+place))",
+            rf"(?:purchas[e]?d?|bought)\s+(?:for|at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns}))?",
+            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:to\s+purchase|unit\s+costs?t?|purchase\s+costs?t?|costs?t?\s+per\s+(?:unit|{unit_nouns})|unit\s+purchase\s+price|per\s+(?:unit|{unit_nouns})\s+purchase|wholesale)",
         ]
         for pat in unit_cost_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -710,10 +706,10 @@ class InventoryNLPParser:
 
         # Selling price
         price_patterns = [
-            r"(?:selling\s+price|retail\s+price|sale\s+price|retail\s+value|customer\s+price|revenue\s+per\s+unit)\s*(?:of|is|equals)?\s*[:=]?\s*\$?(\d+(?:\.\d+)?)",
-            rf"(?:sells?|selling)\s+(?:[\w\s]{{0,30}}?\s+)?for\s+\$?(\d+(?:\.\d+)?)",
-            r"\$(\d+(?:\.\d+)?)\s*(?:each\s+retail|retail|selling\s+price)",
-            r"price\s*(?:of|is|equals)?\s*[:=]?\s*\$?(\d+(?:\.\d+)?)",
+            rf"\b(?:selling\s+price|retail\s+price|sale\s+price|retail\s+value|customer\s+price|revenue\s+per\s+(?:unit|{unit_nouns}))\b\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:sells?|selling)\s+(?:[\w\s]{{0,30}}?\s+)?(?:for|at)\s+{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each\s+retail|retail|selling\s+price)",
+            rf"(?<!wholesale )(?<!purchase )(?<!baseline )(?<!regular )(?<!standard )\bprice\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
         ]
         for pat in price_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -723,11 +719,11 @@ class InventoryNLPParser:
 
         # Salvage value
         salvage_patterns = [
-            r"liquidated\s+(?:to\s+[a-zA-Z\s]{1,30}?\s+)?(?:for|at)\s+\$?(\d+(?:\.\d+)?)",
-            r"(?:salvage\s+value|liquidation\s+value|markdown\s+price|outlet\s+price|scrap\s+value|residual\s+value)\s*(?:of|is|equals)?\s*[:=]?\s*\$?(\d+(?:\.\d+)?)",
-            r"salvage[d]?\s*(?:for|is|equals|value)?\s*\$?(\d+(?:\.\d+)?)",
-            r"liquidated?\s*(?:for|at)?\s*\$?(\d+(?:\.\d+)?)",
-            r"\$(\d+(?:\.\d+)?)\s*(?:salvage|salvage\s+value|liquidation|scrap\s+value)",
+            rf"liquidated\s+(?:to\s+[a-zA-Z\s]{{1,30}}?\s+)?(?:for|at)\s+{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?:salv[a|i]?ge\s+val[u]?e|salv[a|i]?ge|liquidation\s+value|mark[\s-]?down\s+price|outlet\s+price|scrap\s+value|residual\s+value)\s*(?:[\w\s]{{0,35}}?\s+)?(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"salv[a|i]?ged?\s*(?:for|is|equals|value|at)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"liquidated?\s*(?:for|at)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:salv[a|i]?ge|salv[a|i]?ge\s+val[u]?e|liquidation|scrap\s+value)",
         ]
         for pat in salvage_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -761,10 +757,11 @@ class InventoryNLPParser:
         # -------------------------------------------------------------
         # Review Period
         review_patterns = [
-            r"(?:review\s+stock\s+.*?every|reviewed\s+every|review\s+schedule\s+every|order\s+every|review\s+every)\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)",
-            r"every\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)\s*(?:review|periodic\s+review)",
-            r"(?:periodic\s+review\s+period|review\s+period|review\s+interval|periodic\s+review|review\s+cycle|review\s+frequency)\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)?",
-            r"orders?\s+(?:are\s+)?placed\s+every\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)",
+            rf"(?:re[v]?e?i[e]?w\s+stock\s+.*?every|re[v]?e?i[e]?wed\s+every|re[v]?e?i[e]?w\s+schedule\s+every|ord[e]?r\s+every|re[v]?e?i[e]?w\s+every)\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)",
+            rf"every\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)\s*(?:re[v]?e?i[e]?w|per[i]?od[i]?c\s+re[v]?e?i[e]?w)",
+            rf"(?:per[i]?od[i]?c\s+re[v]?e?i[e]?w\s+per[i]?od|re[v]?e?i[e]?w\s+per[i]?od|re[v]?e?i[e]?w\s+int[e]?rval|per[i]?od[i]?c\s+re[v]?e?i[e]?w|re[v]?e?i[e]?w\s+cycle|re[v]?e?i[e]?w\s+frequency)\s*(?:of|is|are|equals|averages)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)?",
+            rf"ord[e]?rs?\s+(?:are\s+)?placed\s+every\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)",
+            rf"re[v]?e?i[e]?ws?\s+inve?nt[o|e]ry\s+every\s*(\d+(?:\.\d+)?)\s*(days?|weeks?|months?)",
         ]
         for pat in review_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -776,8 +773,8 @@ class InventoryNLPParser:
 
         # Safety stock buffer directly specified
         ss_patterns = [
-            r"(?:safety\s+stock\s+buffer|safety\s+stock|safety\s+cushion|safety\s+buffer)\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-            r"(\d+(?:\.\d+)?)\s*units\s*(?:of\s+)?(?:safety\s+stock|safety\s+buffer|safety\s+cushion)",
+            rf"(?:saf[e|t]ty\s+stock\s+buffer|saf[e|t]ty\s+stock|safty\s+stock|saf[e|t]ty\s+cushion|safety\s+cushion|saf[e|t]ty\s+buffer|safety\s+buffer)\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            rf"(\d+(?:\.\d+)?)\s*(?:units|{unit_nouns})?\s*(?:of\s+)?(?:saf[e|t]ty\s+stock|safty\s+stock|safety\s+buffer|safety\s+cushion)",
         ]
         for pat in ss_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -787,7 +784,7 @@ class InventoryNLPParser:
 
         # Inventory Position
         ip_patterns = [
-            r"(?:current\s+inventory\s+position|inventory\s+position|effective\s+inventory)\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            rf"(?:current\s+inve?nt[o|e]ry\s+position|inve?nt[o|e]ry\s+position|effective\s+inve?nt[o|e]ry)\s*(?:of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
         ]
         for pat in ip_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -796,14 +793,18 @@ class InventoryNLPParser:
                 break
 
         # On-hand
-        on_hand_m = re.search(r"(?:on[\s-]hand\s+inventory|on[\s-]hand|physical\s+inventory|current\s+inventory|currently\s+in\s+stock|warehouse\s+has)\s*(?:of|is|are|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)", text_clean, re.IGNORECASE)
+        on_hand_m = re.search(
+            rf"(?:on[\s-]hand\s+inve?nt[o|e]ry|on[\s-]hand|physical\s+inve?nt[o|e]ry|current\s+inve?nt[o|e]ry|currently\s+in\s+stock|warehouse\s+has|existing\s+on[\s-]hand\s+stock)\s*(?:of|is|are|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            text_clean,
+            re.IGNORECASE,
+        )
         if on_hand_m:
             inputs["inventory_on_hand"] = float(on_hand_m.group(1))
 
         # On-order
         on_order_patterns = [
-            r"(?:on[\s-]order\s+inventory|on[\s-]order|pipeline\s+inventory|in[\s-]transit\s+inventory|open\s+orders?)\s*(?:of|is|are|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
-            r"(\d+(?:\.\d+)?)\s*(?:units|components|parts|items)?\s*(?:on[\s-]order|in[\s-]transit|pipeline)",
+            rf"(?:on[\s-]ord[e]?r\s+inve?nt[o|e]ry|on[\s-]ord[e]?r|pipeline\s+inve?nt[o|e]ry|in[\s-]transit\s+inve?nt[o|e]ry|in[\s-]transit|open\s+ord[e]?rs?)\s*(?:of|is|are|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            rf"(\d+(?:\.\d+)?)\s*(?:{unit_nouns})?\s*(?:on[\s-]ord[e]?r|in[\s-]transit|pipeline)",
         ]
         for pat in on_order_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -813,8 +814,8 @@ class InventoryNLPParser:
 
         # Backorders
         backorder_patterns = [
-            r"(\d+(?:\.\d+)?)\s*(?:backorders?|backordered\s+units?|units\s+on\s+backorder)",
-            r"(?:backorders?|backordered\s+units?|unfulfilled\s+orders?|backlog)\s*(?:of|is|are|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            rf"(\d+(?:\.\d+)?)\s*(?:backorders?|backordered\s+(?:units?|{unit_nouns})|units\s+on\s+backorder)",
+            rf"(?:backorders?|backordered\s+(?:units?|{unit_nouns})|unfulfilled\s+ord[e]?rs?|backlog)\s*(?:of|is|are|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)",
         ]
         for pat in backorder_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
@@ -826,20 +827,20 @@ class InventoryNLPParser:
         # 9. Quantity Discount Tiers (Quantity breaks & unit prices)
         # -------------------------------------------------------------
         tiers = []
-        # Pattern 1: Bounded ranges, e.g. "0 to 499 units at $25", "500 - 999: $22"
+        # Pattern 1: Bounded ranges, e.g. "0 to 499 units at $25", "500 - 999: $22", "0 to 4999 kg at € 5.00"
         bounded_matches = re.findall(
-            rf"(\d+)\s*(?:to|-)\s*(\d+)\s*(?:{unit_nouns})?\s*(?:at|@|costs?|for|:)?\s*\$?(\d+(?:\.\d+)?)",
+            rf"(\d+)\s*(?:to|-)\s*(\d+)\s*(?:{unit_nouns})?\s*(?:at|@|costs?t?|for|:)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
             text_clean,
-            re.IGNORECASE
+            re.IGNORECASE,
         )
         for bm in bounded_matches:
             tiers.append({"min_qty": float(bm[0]), "max_qty": float(bm[1]), "unit_price": float(bm[2])})
 
         # Pattern 2: Open-ended top tier, e.g. "1000+ units at $20", "1000 or more units at $20", "over 1000 units at $20"
         open_matches = re.findall(
-            rf"(?:over\s+)?(\d+)\s*(?:\+|or\s+more|and\s+above)\s*(?:{unit_nouns})?\s*(?:at|@|costs?|for|:)?\s*\$?(\d+(?:\.\d+)?)",
+            rf"(?:over\s+)?(\d+)\s*(?:\+|or\s+more|and\s+above)\s*(?:{unit_nouns})?\s*(?:at|@|costs?t?|for|:)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
             text_clean,
-            re.IGNORECASE
+            re.IGNORECASE,
         )
         for om in open_matches:
             min_q = float(om[0])
@@ -851,8 +852,8 @@ class InventoryNLPParser:
             inputs["tiers"] = sorted(tiers, key=lambda t: t["min_qty"])
         else:
             # Check for alternative price break patterns: "under 500: $20, 500 or more: $18"
-            under_m = re.search(r"(?:under|below|less\s+than)\s*(\d+)\s*(?:units)?\s*[:=]?\s*(?:at|is)?\s*\$?(\d+(?:\.\d+)?)", text_clean, re.IGNORECASE)
-            over_m = re.search(r"(\d+)\s*(?:or\s+more|\+)\s*(?:units)?\s*[:=]?\s*(?:at|is)?\s*\$?(\d+(?:\.\d+)?)", text_clean, re.IGNORECASE)
+            under_m = re.search(rf"(?:under|below|less\s+than)\s*(\d+)\s*(?:{unit_nouns})?\s*[:=]?\s*(?:at|is)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)", text_clean, re.IGNORECASE)
+            over_m = re.search(rf"(\d+)\s*(?:or\s+more|\+)\s*(?:{unit_nouns})?\s*[:=]?\s*(?:at|is)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)", text_clean, re.IGNORECASE)
             if under_m and over_m:
                 break_q = float(under_m.group(1))
                 price1 = float(under_m.group(2))

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 
 ---
 
+## [1.5.0] - 2026-11-07
+
+### Added
+- **UI Layout Separation & Workspace Views**:
+  - Implemented dedicated interface view navigation in the sidebar panel (`st.sidebar.radio`):
+    1. `🤖 Inventory Decision Agent`: Focused classical inventory decision agent with prompt input, stress-test loader, persistent dashboard, and the 6 architectural tabs (Steps 2 through 7).
+    2. `📊 Multi-Criteria Classification & Portfolio (CSV)`: Dedicated, uncluttered workspace for multi-criteria inventory classification (65/35 Sales & Hits methodology), Pareto curves, scatter matrix, and portfolio valuation.
+    3. `📑 Combined View`: Sequential presentation with the Decision Agent on top and the CSV Classification section rendered strictly at the bottom below all 7 tabs.
+  - Eliminated the UI layout flaw where CSV tables rendered in the middle of the page between the Customer Question and the tabbed outputs.
+- **NLP Robustness & 25 Stress-Test Scenarios**:
+  - Enhanced `InventoryNLPParser` with domain resilience against:
+    - **Inadvertent typos & misspellings**: e.g., `demmand`, `ordring costt`, `holdng`, `carying chagre`, `leaddtime`, `servise level`, `reveiw`, `safty`, `qunatity discout`, `salvge`.
+    - **Diverse international units of measure**: `liters`, `metric tons`, `gallons`, `barrels`, `kilograms`, `meters`, `crates`, `spools`, `cartons`, `vials`, `hectoliters`, `sacks`, `drums`, `rolls`, `bags`.
+    - **International currencies**: `€` (Euros), `£` (British Pounds), `$` (USD), `₹` (Indian Rupees), `¥` (Japanese Yen), `CAD $` (Canadian Dollars), `AUD $` (Australian Dollars), `CHF` (Swiss Francs).
+  - Integrated interactive `🧪 NLP Robustness & Stress-Test Scenarios` UI expander dynamically displaying 5 model-specific scenarios for whichever inventory model is active. One-click "Load Scenario" button populates the question input without cluttering the Preset Example dropdown.
+- **Comprehensive Automated Test Suite**:
+  - Created [`tests/test_nlp_stress_robustness.py`](./tests/test_nlp_stress_robustness.py) verifying all 25 stress-test scenarios (5 EOQ, 5 Quantity Discount, 5 ROP, 5 Fixed-Period Review, 5 Newsvendor). Test suite expanded from 79 to **104 passing tests** (100% pass rate).
+
+### Changed
+- Preserved preset dropdown with strictly the original 5 sample scenarios and custom query option.
+- Updated version tags to `v1.5.0` across sidebar, footer, `Update Prompt.txt`, `README.md`, and `CHANGELOG.md`.
+
+---
+
 ## [1.4.0] - 2026-11-07
 
 ### Added

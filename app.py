@@ -18,6 +18,7 @@ Supports 5 inventory models:
 5. Newsvendor Model
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -148,12 +149,283 @@ PRESET_QUESTIONS = {
 
 
 # ---------------------------------------------------------------------------
+# NLP Robustness Stress-Test Questions (25 Scenarios: 5 per Model)
+# ---------------------------------------------------------------------------
+# Demonstrates NLP parser resilience against misspellings, typos,
+# international currencies (€, £, $, ₹, ¥, CAD $, AUD $, CHF),
+# and diverse industrial units of measure (liters, metric tons, barrels, etc.).
+
+STRESS_TEST_SCENARIOS = {
+    "eoq": [
+        {
+            "id": "eoq_1",
+            "title": "Solvent Batching (Liters, Euros €, Typos: anual demmand, ordring costt, carying chagre)",
+            "query": (
+                "A chemical plant has an anual demmand of 12000 liters of specialty solvent. "
+                "The ordring costt is € 45 per order, and the carying chagre is € 1.50 per unit annually. "
+                "What is the optimal batch size?"
+            ),
+        },
+        {
+            "id": "eoq_2",
+            "title": "Bitumen Procurement (Metric Tons, British Pounds £, Typos: set-up expens, holdng cost)",
+            "query": (
+                "An asphalt refinery needs 4800 metric tons of bitumen each year. "
+                "The set-up expens for placing each replenishment order is £ 120, "
+                "and the holdng cost is £ 8.00 per unit per year. Calculate the economic order quantity."
+            ),
+        },
+        {
+            "id": "eoq_3",
+            "title": "Fiber Optic Spools (Spools, Swiss Francs CHF, Typos: requirment, carring cost)",
+            "query": (
+                "A telecommunications workshop experiences a yearly requirment of 24000 spools of optical cable. "
+                "Each order costs CHF 75 to place, and the annual carring cost is 15% of the purchase price "
+                "of CHF 200 per spool. How many units should we order?"
+            ),
+        },
+        {
+            "id": "eoq_4",
+            "title": "Motor Oil Supply (Barrels, Japanese Yen ¥, Typos: monthly demmand, barels)",
+            "query": (
+                "A marine shipping dock has a monthly demmand of 500 barels of motor oil. "
+                "The order cost is ¥ 6000 per order, and fixed holding cost is ¥ 250 per unit per year. "
+                "What is the EOQ lot size?"
+            ),
+        },
+        {
+            "id": "eoq_5",
+            "title": "Produce Crates (Crates, Canadian Dollars CAD $, Typos: replenishment cost, batch size)",
+            "query": (
+                "A grocery distribution center requires 52000 crates of organic apples annually. "
+                "The replenishment cost is CAD $ 85 per order, with a carrying charge of CAD $ 3.25 per unit per year. "
+                "Determine the batch size."
+            ),
+        },
+    ],
+    "quantity_discount": [
+        {
+            "id": "qd_1",
+            "title": "Resin Pellets (Kilograms, Euros €, Typos: anual demmand, ordring cost)",
+            "query": (
+                "A plastics manufacturing firm consumes an anual demmand of 30000 kilograms of resin pellets. "
+                "The ordring cost is € 60 per order, and the percentage holding cost is 20% of unit price. "
+                "The supplier offers discount tiers: 0 to 4999 kg at € 5.00, 5000 to 9999 kg at € 4.50, "
+                "and 10000 or more kg at € 4.00. What is the optimal order quantity?"
+            ),
+        },
+        {
+            "id": "qd_2",
+            "title": "Industrial Canvas (Meters, British Pounds £, Typos: yearly demmand, setup expense)",
+            "query": (
+                "A textile mill has a yearly demmand of 15000 meters of canvas. "
+                "Setup expense is £ 90 per order, and holding cost rate is 18%. "
+                "The volume discount price breaks are: 0 to 1999 meters at £ 12.00, 2000 to 4999 meters at £ 10.50, "
+                "and 5000 or more meters at £ 9.20. Determine the best price break tier."
+            ),
+        },
+        {
+            "id": "qd_3",
+            "title": "Hydraulic Fluid (Gallons, US Dollars $, Typos: order placement cost, tier structure)",
+            "query": (
+                "An aircraft maintenance depot requires 8000 gallons of hydraulic fluid annually. "
+                "Order placement cost is $ 110, and carrying rate is 25% of unit cost. "
+                "Tier structure: 0 to 999 gallons at $ 40, 1000 to 2499 gallons at $ 36, "
+                "and 2500 or more gallons at $ 32. Find the optimal discount tier."
+            ),
+        },
+        {
+            "id": "qd_4",
+            "title": "Reagent Drums (Drums, Indian Rupees ₹, Typos: ordring costt, quantity discount tiers)",
+            "query": (
+                "A pharmaceutical laboratory uses 6000 drums of reagent each year. "
+                "The ordring costt is ₹ 1500 per order, and annual holding cost is 22% of price. "
+                "Supplier offers quantity discount tiers: 0 to 499 drums at ₹ 800, 500 to 1499 drums at ₹ 720, "
+                "and 1500 or more drums at ₹ 650. Calculate the total cost minimizing order size."
+            ),
+        },
+        {
+            "id": "qd_5",
+            "title": "Medical Gloves (Cartons, Australian Dollars AUD $, Typos: percentage holding cost)",
+            "query": (
+                "A regional hospital network needs 20000 cartons of sterile gloves per year. "
+                "Cost to place an order is AUD $ 50, and percentage holding cost is 15%. "
+                "Discount tiers are: 0 to 999 cartons at AUD $ 25.00, 1000 to 2999 cartons at AUD $ 22.50, "
+                "and 3000 or more cartons at AUD $ 19.80. Find optimal order quantity."
+            ),
+        },
+    ],
+    "safety_stock_rop": [
+        {
+            "id": "rop_1",
+            "title": "Liquid Nitrogen (Liters, Euros €, Typos: daily demmand, leaddtime, servise level)",
+            "query": (
+                "A cryogenic facility has daily demmand of 150 liters with a standard deviation of 25 liters. "
+                "The delivery leaddtime is 6 days, and the desired servise level is 95%. "
+                "Calculate the safety stock and reorder point."
+            ),
+        },
+        {
+            "id": "rop_2",
+            "title": "Steel Rods (Metric Tons, British Pounds £, Typos: daily usage, lead-time, safty stock)",
+            "query": (
+                "A civil engineering site experiences an average daily usage of 40 metric tons with standard deviation "
+                "of daily demand of 8 metric tons. Supplier replenishment lead-time averages 9 days. "
+                "If management targets a 98% cycle service level, what are the safty stock and ROP?"
+            ),
+        },
+        {
+            "id": "rop_3",
+            "title": "Crude Oil (Barrels, US Dollars $, Typos: lead-time standard deviation, std dev)",
+            "query": (
+                "An oil terminal experiences average daily demand of 500 barrels with std dev of 60 barrels. "
+                "Replenishment lead time is 4 days with lead-time standard deviation of 1.5 days. "
+                "What is the reorder point for a 99% service level?"
+            ),
+        },
+        {
+            "id": "rop_4",
+            "title": "Anti-Venom (Vials, Indian Rupees ₹, Typos: servise level, safety buffer)",
+            "query": (
+                "A healthcare center uses 80 vials of anti-venom per day with a standard deviation of 12 vials. "
+                "Delivery time is 5 days, and target cycle servise level is 90%. "
+                "What safety buffer and reorder point should be maintained?"
+            ),
+        },
+        {
+            "id": "rop_5",
+            "title": "Copper Wire (Spools, Canadian Dollars CAD $, Typos: daily demand standard deviation)",
+            "query": (
+                "An electrical contractor needs 35 spools of wire per day with daily demand standard deviation "
+                "of 6 spools. Vendor lead time is 8 days with a target service level of 96%. "
+                "Find the safety stock and reorder point."
+            ),
+        },
+    ],
+    "fixed_period_review": [
+        {
+            "id": "fpr_1",
+            "title": "Brewery Tanks (Hectoliters, Euros €, Typos: daily demmand, leaddtime, on-hand)",
+            "query": (
+                "A regional brewery has average daily demmand of 20 hectoliters with daily demand std dev of 4 hectoliters. "
+                "The review period is 14 days, and vendor leaddtime is 7 days. Current inventory on-hand is 180 hectoliters, "
+                "and on-order inventory is 60 hectoliters. For a 95% service level, "
+                "what is the target inventory level and how many hectoliters should be ordered?"
+            ),
+        },
+        {
+            "id": "fpr_2",
+            "title": "Surgical Masks (Boxes, British Pounds £, Typos: periodic reveiw, delivery time, order-up-to)",
+            "query": (
+                "A medical depot follows a periodic reveiw policy. Stock is reviewed every 10 days with a supplier delivery time "
+                "of 4 days. Mean daily demand is 50 boxes with standard deviation of 10 boxes. "
+                "Warehouse has 320 boxes on-hand and 0 on-order. Desired service level is 98%. "
+                "What order-up-to level and replenishment quantity should be placed?"
+            ),
+        },
+        {
+            "id": "fpr_3",
+            "title": "Packaging Film (Rolls, Japanese Yen ¥, Typos: reviews inventory every, cycle service level)",
+            "query": (
+                "A packaging plant reviews inventory every 21 days. Replenishment lead time is 7 days. "
+                "Average daily usage is 15 rolls with demand standard deviation of 3 rolls. "
+                "Currently on-hand inventory is 250 rolls with 100 rolls on-order. Cycle service level is 99%. "
+                "What is the target inventory position and order quantity?"
+            ),
+        },
+        {
+            "id": "fpr_4",
+            "title": "Grain Silo (Sacks, Indian Rupees ₹, Typos: reviews inventory every, open orders)",
+            "query": (
+                "An agricultural silo reviews inventory every 30 days. Delivery lead-time averages 10 days. "
+                "Mean daily demand is 45 sacks with standard deviation of 9 sacks. Existing on-hand stock is 600 sacks, "
+                "and open orders are 200 sacks. Target service level is 92%. "
+                "Determine the target inventory level and batch order size."
+            ),
+        },
+        {
+            "id": "fpr_5",
+            "title": "Rail Maintenance (Drums, Swiss Francs CHF, Typos: periodic review, in-transit, order-up-to)",
+            "query": (
+                "A railway maintenance hub uses a periodic review system with review period of 7 days and lead time of 3 days. "
+                "Daily demand averages 12 drums with std dev of 2.5 drums. Warehouse inventory on-hand is 75 drums, "
+                "and 20 drums are in-transit. Service level is 95%. "
+                "Calculate the order-up-to base stock and recommended order."
+            ),
+        },
+    ],
+    "newsvendor": [
+        {
+            "id": "nv_1",
+            "title": "Fresh Strawberries (Crates, Euros €, Typos: perishable, salvage value, critical fractile)",
+            "query": (
+                "A fresh fruit exporter purchases perishable strawberries at unit cost of € 12 per crate "
+                "and sells them at retail price of € 28 per crate. Any unsold crate at the end of the day "
+                "is liquidated at salvage value of € 4. Demand follows a normal distribution with mean demand "
+                "of 500 crates and standard deviation of 75 crates. What is the optimal stocking quantity and critical fractile?"
+            ),
+        },
+        {
+            "id": "nv_2",
+            "title": "Holiday Panettone (Pallets, British Pounds £, Typos: holiday season, critical ratio)",
+            "query": (
+                "A seasonal bakery produces specialty cakes for the holiday season. Each pallet costs £ 150 to manufacture "
+                "and sells for £ 350. Unsold pallets have a salvage value of £ 50. Seasonal demand is normally distributed "
+                "with mean of 1200 pallets and std dev of 220 pallets. Find the critical ratio and profit-maximizing order quantity."
+            ),
+        },
+        {
+            "id": "nv_3",
+            "title": "Flu Vaccines (Vials, US Dollars $, Typos: perishable, uniform distribution, newsvendor)",
+            "query": (
+                "A pharmaceutical distributor buys perishable flu vaccine vials for $ 22 each and distributes them "
+                "at a selling price of $ 65 each. Salvage value for expired vials is $ 5. "
+                "Demand is uniform between 3000 and 7000 vials. What is the optimal order quantity under the newsvendor model?"
+            ),
+        },
+        {
+            "id": "nv_4",
+            "title": "Tournament Jerseys (Cartons, Japanese Yen ¥, Typos: wholesale price, salvage value, critical fractile)",
+            "query": (
+                "A sports merchandise vendor purchases championship jerseys at wholesale price of ¥ 3000 per carton "
+                "and sells them for ¥ 8500 per carton. Salvage value after the tournament is ¥ 1000 per carton. "
+                "Demand is normal with mean demand of 800 cartons and standard deviation of 150 cartons. "
+                "Determine the critical fractile and optimal stocking quantity."
+            ),
+        },
+        {
+            "id": "nv_5",
+            "title": "Roasted Coffee (Bags, Canadian Dollars CAD $, Typos: seasonal holiday, customer price, newsvendor)",
+            "query": (
+                "A specialty roaster prepares seasonal holiday coffee bags with unit cost of CAD $ 8 and customer price of CAD $ 22. "
+                "Unsold bags have salvage value of CAD $ 2. Demand is normally distributed with mean 2500 bags "
+                "and standard deviation 400 bags. What is the newsvendor optimal order quantity?"
+            ),
+        },
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
 # Sidebar Controls & Navigation
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("📦 Navigation & Settings")
-st.sidebar.caption("🏷️ Version: `v1.4.0` | Core SemVer | 2026-11-07")
+st.sidebar.caption("🏷️ Version: `v1.5.0` | Core SemVer | 2026-11-07")
 
+st.sidebar.markdown("### 🧭 Workspace View")
+workspace_view = st.sidebar.radio(
+    "Select Active Interface View:",
+    [
+        "🤖 Inventory Decision Agent",
+        "📊 Multi-Criteria Classification & Portfolio (CSV)",
+        "📑 Combined View",
+    ],
+    index=0,
+    help="Navigate between the natural language decision agent and the multi-criteria CSV inventory classification engine.",
+)
+
+st.sidebar.markdown("---")
 st.sidebar.markdown("### Select Preset Example")
 selected_preset_label = st.sidebar.selectbox(
     "Choose a sample inventory question:",
@@ -196,45 +468,90 @@ uploaded_file = st.sidebar.file_uploader(
 
 
 # ---------------------------------------------------------------------------
-# Header Section
+# Session State Question Synchronization
 # ---------------------------------------------------------------------------
+if "user_query_text" not in st.session_state:
+    st.session_state["user_query_text"] = PRESET_QUESTIONS["1. Economic Order Quantity (EOQ)"]
+if "last_preset_selection" not in st.session_state:
+    st.session_state["last_preset_selection"] = selected_preset_label
 
-st.markdown(
-    '<div class="main-title">📦 Supply Chain Analytics: Inventory Decision Agent</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="sub-title">Autonomous 7-Step Decision Pipeline for Classical & Stochastic Inventory Systems '
-    "| UNCW BAN 517 Supply Chain Analytics</div>",
-    unsafe_allow_html=True,
-)
-
-# Step 1: Customer Question Input
-st.markdown("### 💬 1. Customer Question")
-
-default_question_text = PRESET_QUESTIONS["1. Economic Order Quantity (EOQ)"]
-if selected_preset_label in PRESET_QUESTIONS:
-    default_question_text = PRESET_QUESTIONS[selected_preset_label]
-
-user_query = st.text_area(
-    "Enter a natural-language inventory question:",
-    value=default_question_text,
-    height=110,
-    help="Type any supply chain scenario or choose an example from the sidebar.",
-)
-
-col_btn, col_info = st.columns([1, 4])
-with col_btn:
-    run_agent = st.button(
-        "🚀 Run Decision Agent", type="primary", use_container_width=True
-    )
+if selected_preset_label != st.session_state["last_preset_selection"]:
+    st.session_state["last_preset_selection"] = selected_preset_label
+    if selected_preset_label in PRESET_QUESTIONS:
+        st.session_state["user_query_text"] = PRESET_QUESTIONS[selected_preset_label]
 
 agent = InventoryDecisionAgent()
-
-# Run the 7-step agent pipeline
 pipeline_response: AgentPipelineResponse = agent.process_query(
-    customer_question=user_query, manual_model_override=model_override_key
+    customer_question=st.session_state["user_query_text"],
+    manual_model_override=model_override_key,
 )
+
+
+# ---------------------------------------------------------------------------
+# Step 1: Customer Question (Rendered in Agent and Combined Views)
+# ---------------------------------------------------------------------------
+if workspace_view in ("🤖 Inventory Decision Agent", "📑 Combined View"):
+    st.markdown(
+        '<div class="main-title">📦 Supply Chain Analytics: Inventory Decision Agent</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="sub-title">Autonomous 7-Step Decision Pipeline for Classical & Stochastic Inventory Systems '
+        "| UNCW BAN 517 Supply Chain Analytics</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("### 💬 1. Customer Question")
+
+    user_query = st.text_area(
+        "Enter a natural-language inventory question:",
+        value=st.session_state["user_query_text"],
+        height=110,
+        help="Type any supply chain scenario or choose an example from the sidebar.",
+        key="main_user_query_textarea",
+    )
+    st.session_state["user_query_text"] = user_query
+
+    col_btn, col_info = st.columns([1, 4])
+    with col_btn:
+        run_agent = st.button(
+            "🚀 Run Decision Agent", type="primary", use_container_width=True
+        )
+
+    # -----------------------------------------------------------------------
+    # NLP Robustness & Stress-Test Scenarios Expander
+    # Automatically displays 5 scenarios for the active identified model
+    # -----------------------------------------------------------------------
+    active_m_key = pipeline_response.model_key
+    active_m_name = pipeline_response.identified_model
+    model_scenarios = STRESS_TEST_SCENARIOS.get(active_m_key, [])
+
+    with st.expander(
+        f"🧪 NLP Robustness & Stress-Test Scenarios for {active_m_name} (Typos, Currencies & Diverse Units)",
+        expanded=False,
+    ):
+        st.caption(
+            "Demonstrating natural language parsing resilience against inadvertent keystrokes / misspellings "
+            "(e.g., *demmand*, *ordring costt*, *carying chagre*, *leaddtime*, *servise level*, *reveiw*, *safty*), "
+            "diverse international currencies (€, £, $, ₹, ¥, CAD $, AUD $, CHF), "
+            "and diverse industrial units of measurement (liters, metric tons, barrels, spools, crates, etc.). "
+            "Click **Load Scenario** to test."
+        )
+        for s_idx, sc in enumerate(model_scenarios):
+            col_sc_txt, col_sc_btn = st.columns([4, 1])
+            with col_sc_txt:
+                st.markdown(f"**Scenario {s_idx + 1}: {sc['title']}**")
+                st.caption(f"_{sc['query']}_")
+            with col_sc_btn:
+                if st.button(
+                    f"📥 Load Scenario {s_idx + 1}",
+                    key=f"load_stress_{active_m_key}_{s_idx}",
+                    use_container_width=True,
+                ):
+                    st.session_state["user_query_text"] = sc["query"]
+                    st.session_state["last_preset_selection"] = "Select below or write custom question -->"
+                    st.rerun()
+            st.markdown("<hr style='margin: 0.35rem 0;'>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1854,427 +2171,476 @@ def render_csv_data_analysis_section(file):
 
 
 # ---------------------------------------------------------------------------
-# Render Persistent Dashboard & 7 Architectural Steps
+# Decision Agent 6-Tab Architectural Step Renderer
 # ---------------------------------------------------------------------------
 
-# Render persistent dashboard directly below the prompt
-render_persistent_variable_dashboard(pipeline_response)
+def render_decision_agent_tabs(pipeline_response: AgentPipelineResponse):
+    """Render the 6 architectural tabs (Steps 2 through 7) for the decision agent."""
+    res = pipeline_response.raw_calculation_result
+    has_calc_error = "error" in res
 
-# Render CSV Data Analysis if a file has been uploaded via the sidebar
-if uploaded_file is not None:
-    st.markdown("---")
-    render_csv_data_analysis_section(uploaded_file)
-
-st.markdown("---")
-
-res = pipeline_response.raw_calculation_result
-has_calc_error = "error" in res
-
-tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-    [
-        "🎯 2. Identify Model",
-        "🔍 3. Extract Inputs",
-        "⚙️ 4. Python Tool",
-        "📊 5. Calculate & Viz",
-        "🛡️ 6. Verify & Audit",
-        "💡 7. Executive Decision",
-    ]
-)
-
-# ---------------------------------------------------------------------------
-# Tab 2: Identify Models
-# ---------------------------------------------------------------------------
-with tab2:
-    st.markdown("#### 🎯 Architectural Step 2: Model Identification")
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.info(f"**Identified Model**: {pipeline_response.identified_model}")
-        st.write(
-            f"**Detection Rationale**: {pipeline_response.identification_rationale}"
-        )
-    with c2:
-        conf_pct = int(pipeline_response.model_confidence * 100)
-        st.metric("Identification Confidence", f"{conf_pct}%")
-        st.progress(conf_pct / 100.0)
-
-    # Student Verification Guide — Item 8: Assumptions
-    st.markdown("---")
-    st.markdown(
-        "##### 🎓 Student Verification Guide — Item 8: Governing Model Assumptions & Prerequisites"
-    )
-    st.caption(
-        "Theoretical boundaries and operational assumptions under which this inventory model is mathematically valid:"
-    )
-    assumptions_list = (
-        res.get("assumptions", []) or pipeline_response.explanation.assumptions
-    )
-    if assumptions_list:
-        for asm in assumptions_list:
-            st.markdown(f"- 📋 {asm}")
-    else:
-        st.info("Model assumptions will display upon model selection.")
-
-# ---------------------------------------------------------------------------
-# Tab 3: Extract Inputs
-# ---------------------------------------------------------------------------
-with tab3:
-    st.markdown("#### 🔍 Architectural Step 3: Semantic Input Extraction")
-    st.caption(
-        "Parameters and theoretical inventory variables parsed from the natural-language question."
-    )
-
-    # Student Verification Guide — Item 1: Inputs Extracted
-    st.markdown("##### 🎓 Student Verification Guide — Item 1: Inputs Extracted")
-    inputs = res.get("inputs_extracted") or pipeline_response.extracted_inputs
-    conv_note = inputs.get(
-        "demand_conversion_note"
-    ) or pipeline_response.extracted_inputs.get("demand_conversion_note")
-    if conv_note:
-        st.info(f"🔄 **Demand Normalization Applied**: {conv_note}")
-    if inputs:
-        items = [
-            {"Parameter": k, "Extracted Value": str(v)}
-            for k, v in inputs.items()
-            if k != "tiers"
+    tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+        [
+            "🎯 2. Identify Model",
+            "🔍 3. Extract Inputs",
+            "⚙️ 4. Python Tool",
+            "📊 5. Calculate & Viz",
+            "🛡️ 6. Verify & Audit",
+            "💡 7. Executive Decision",
         ]
-        df_inputs = pd.DataFrame(items)
-        st.dataframe(df_inputs, use_container_width=True)
-
-        if "tiers" in inputs and inputs["tiers"]:
-            st.markdown("**Extracted Discount Tiers Table:**")
-            df_tiers = pd.DataFrame(inputs["tiers"])
-            st.dataframe(df_tiers, use_container_width=True)
-    else:
-        st.warning(
-            "No parameters were automatically parsed. Defaults or explicit inputs are required."
-        )
-
-    if pipeline_response.input_extraction_notes:
-        with st.expander("ℹ️ Semantic Extraction Parsing Notes", expanded=False):
-            for note in pipeline_response.input_extraction_notes:
-                st.markdown(f"- {note}")
-
-    # Student Verification Guide — Item 2: Variable Definitions
-    st.markdown("---")
-    st.markdown("##### 🎓 Student Verification Guide — Item 2: Variable Definitions")
-    st.caption(
-        "Formal academic definitions and notation for all parameters in this inventory problem:"
-    )
-    var_defs = (
-        res.get("variable_definitions", {})
-        or pipeline_response.explanation.variable_definitions
-    )
-    if var_defs:
-        df_vars = pd.DataFrame(
-            [
-                {"Variable Symbol": k, "Formal Definition": v}
-                for k, v in var_defs.items()
-            ]
-        )
-        st.dataframe(df_vars, use_container_width=True)
-    else:
-        st.info("Variable definitions will display once the model is executed.")
-
-# ---------------------------------------------------------------------------
-# Tab 4: Select Python Tool
-# ---------------------------------------------------------------------------
-with tab4:
-    st.markdown(
-        "#### ⚙️ Architectural Step 4: Python Tool Selection & Formula Specification"
-    )
-    st.success(
-        f"Selected Deterministic Tool: `{pipeline_response.tool_module}.{pipeline_response.selected_tool_name}()`"
-    )
-    st.markdown("""
-    All numerical computation is routed strictly through deterministic Python functions
-    in `inventory_tools.py` using NumPy and SciPy. LLMs never calculate or reconstruct numerical results independently.
-    """)
-
-    # Student Verification Guide — Item 3: Formula
-    st.markdown("---")
-    st.markdown(
-        "##### 🎓 Student Verification Guide — Item 3: Theoretical Governing Formula(s)"
-    )
-    st.caption(
-        "The algebraic mathematical formulation selected and executed by the Python tool:"
-    )
-    formula_latex = (
-        res.get("formula", "") or pipeline_response.explanation.mathematical_formula
-    )
-    if formula_latex:
-        st.latex(formula_latex)
-    else:
-        st.info("Theoretical formula will display upon model selection.")
-
-# ---------------------------------------------------------------------------
-# Tab 5: Calculate & Visualization
-# ---------------------------------------------------------------------------
-with tab5:
-    st.markdown(
-        "#### 📊 Architectural Step 5: Deterministic Calculation & Visual Analytics"
     )
 
-    if has_calc_error:
-        st.error(f"Calculation Error: {res['error']}")
-        st.warning(
-            "Please provide all required numerical inputs in the question or select a preset example."
-        )
-    else:
-        # Display Key Metrics
-        m_key = pipeline_response.model_key
-
-        if m_key == "eoq":
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Optimal EOQ (Q*)", f"{res.get('eoq_rounded', 0):,} units")
-            c2.metric("Orders per Year", f"{res.get('orders_per_year', 0.0):.1f}")
-            cycle_disp = (
-                f"{res['cycle_time_days']:.1f} days"
-                if res.get("cycle_time_days") is not None
-                else "N/A"
+    # ---------------------------------------------------------------------------
+    # Tab 2: Identify Models
+    # ---------------------------------------------------------------------------
+    with tab2:
+        st.markdown("#### 🎯 Architectural Step 2: Model Identification")
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            st.info(f"**Identified Model**: {pipeline_response.identified_model}")
+            st.write(
+                f"**Detection Rationale**: {pipeline_response.identification_rationale}"
             )
-            c3.metric("Cycle Time", cycle_disp)
-            c4.metric("Total Annual Cost", f"${res.get('total_annual_cost', 0.0):,.2f}")
+        with c2:
+            conf_pct = int(pipeline_response.model_confidence * 100)
+            st.metric("Identification Confidence", f"{conf_pct}%")
+            st.progress(conf_pct / 100.0)
 
-            st.pyplot(plot_eoq_curve(res))
-
-        elif m_key == "quantity_discount":
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric(
-                "Optimal Order Q", f"{res['optimal_order_quantity_rounded']:,} units"
-            )
-            c2.metric("Optimal Unit Price", f"${res['optimal_unit_price']:.2f}")
-            c3.metric("Total Annual Cost", f"${res['optimal_total_cost']:,.2f}")
-            c4.metric("Annual Savings", f"${res['annual_savings_vs_base']:,.2f}")
-
-            st.pyplot(plot_discount_comparison(res))
-
-            st.markdown("##### Detailed Tier Comparison Table:")
-            df_eval = pd.DataFrame(res["tier_evaluations"])
-            st.dataframe(df_eval, use_container_width=True)
-
-        elif m_key == "safety_stock_rop":
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Reorder Point (ROP)", f"{res['reorder_point_rounded']:,} units")
-            c2.metric("Safety Stock Buffer", f"{res['safety_stock_rounded']:,} units")
-            c3.metric("Lead Time Demand", f"{res['lead_time_demand_mean']:.1f} units")
-            c4.metric("Cycle Service Level", f"{res['service_level'] * 100:.1f}%")
-
-            st.pyplot(plot_rop_normal(res))
-
-        elif m_key == "fixed_period_review":
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric(
-                "Order-Up-To Level (M)", f"{res['order_up_to_level_rounded']:,} units"
-            )
-            c2.metric(
-                "Recommended Order Q",
-                f"{res['recommended_order_quantity_rounded']:,} units",
-            )
-            c3.metric("Safety Stock", f"{res['safety_stock_rounded']:,} units")
-            c4.metric(
-                "Protection Interval",
-                f"{res['protection_interval']:.0f} {res['time_unit']}",
-            )
-
-            # Horizontal bar visualization of inventory position vs Target M
-            fig, ax = plt.subplots(figsize=(7, 2.5))
-            m_val = res["order_up_to_level"]
-            ip_val = res["current_inventory_position"]
-            q_val = res["recommended_order_quantity"]
-
-            ax.barh(
-                ["Inventory"],
-                [ip_val],
-                color="#3B82F6",
-                label=f"Current Inventory Position ({ip_val:.0f})",
-            )
-            ax.barh(
-                ["Inventory"],
-                [q_val],
-                left=[ip_val],
-                color="#10B981",
-                label=f"Recommended Order ({q_val:.0f})",
-            )
-            ax.axvline(
-                m_val,
-                color="#DC2626",
-                linestyle="--",
-                lw=2,
-                label=f"Target M ({m_val:.0f})",
-            )
-
-            ax.set_title(
-                "Periodic Review: Inventory Position vs Order-Up-To Level (M)",
-                fontsize=11,
-                fontweight="bold",
-            )
-            ax.set_xlabel("Units")
-            ax.legend(loc="lower right", fontsize=8)
-            ax.grid(True, axis="x", linestyle=":", alpha=0.5)
-            plt.tight_layout()
-            st.pyplot(fig)
-
-        elif m_key == "newsvendor":
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric(
-                "Optimal Order (Q*)", f"{res['optimal_order_quantity_rounded']:,} units"
-            )
-            c2.metric(
-                "Critical Fractile (CR)", f"{res['critical_fractile'] * 100:.2f}%"
-            )
-            c3.metric("Expected Profit", f"${res['expected_profit']:,.2f}")
-            c4.metric(
-                "In-Stock Probability", f"{res['in_stock_probability'] * 100:.2f}%"
-            )
-
-            st.pyplot(plot_newsvendor_curve(res))
-
-        # Student Verification Guide — Item 4: Formula with Substituted Values
+        # Student Verification Guide — Item 8: Assumptions
         st.markdown("---")
         st.markdown(
-            "##### 🎓 Student Verification Guide — Item 4: Formula with Substituted Values"
+            "##### 🎓 Student Verification Guide — Item 8: Governing Model Assumptions & Prerequisites"
         )
         st.caption(
-            "Theoretical formula with the student's exact numerical values substituted into each term:"
+            "Theoretical boundaries and operational assumptions under which this inventory model is mathematically valid:"
         )
-        formula_sub = (
-            res.get("formula_with_substituted_values")
-            or pipeline_response.explanation.formula_with_substituted_values
+        assumptions_list = (
+            res.get("assumptions", []) or pipeline_response.explanation.assumptions
         )
-        if formula_sub:
-            st.latex(formula_sub)
+        if assumptions_list:
+            for asm in assumptions_list:
+                st.markdown(f"- 📋 {asm}")
         else:
-            st.info(
-                "Substituted formula is generated when calculation inputs are complete."
+            st.info("Model assumptions will display upon model selection.")
+
+    # ---------------------------------------------------------------------------
+    # Tab 3: Extract Inputs
+    # ---------------------------------------------------------------------------
+    with tab3:
+        st.markdown("#### 🔍 Architectural Step 3: Semantic Input Extraction")
+        st.caption(
+            "Parameters and theoretical inventory variables parsed from the natural-language question."
+        )
+
+        # Student Verification Guide — Item 1: Inputs Extracted
+        st.markdown("##### 🎓 Student Verification Guide — Item 1: Inputs Extracted")
+        inputs = res.get("inputs_extracted") or pipeline_response.extracted_inputs
+        conv_note = inputs.get(
+            "demand_conversion_note"
+        ) or pipeline_response.extracted_inputs.get("demand_conversion_note")
+        if conv_note:
+            st.info(f"🔄 **Demand Normalization Applied**: {conv_note}")
+        if inputs:
+            items = [
+                {"Parameter": k, "Extracted Value": str(v)}
+                for k, v in inputs.items()
+                if k != "tiers"
+            ]
+            df_inputs = pd.DataFrame(items)
+            st.dataframe(df_inputs, use_container_width=True)
+
+            if "tiers" in inputs and inputs["tiers"]:
+                st.markdown("**Extracted Discount Tiers Table:**")
+                df_tiers = pd.DataFrame(inputs["tiers"])
+                st.dataframe(df_tiers, use_container_width=True)
+        else:
+            st.warning(
+                "No parameters were automatically parsed. Defaults or explicit inputs are required."
             )
 
-        # Student Verification Guide — Item 5: Intermediate Calculations
+        if pipeline_response.input_extraction_notes:
+            with st.expander("ℹ️ Semantic Extraction Parsing Notes", expanded=False):
+                for note in pipeline_response.input_extraction_notes:
+                    st.markdown(f"- {note}")
+
+        # Student Verification Guide — Item 2: Variable Definitions
+        st.markdown("---")
+        st.markdown("##### 🎓 Student Verification Guide — Item 2: Variable Definitions")
+        st.caption(
+            "Formal academic definitions and notation for all parameters in this inventory problem:"
+        )
+        var_defs = (
+            res.get("variable_definitions", {})
+            or pipeline_response.explanation.variable_definitions
+        )
+        if var_defs:
+            df_vars = pd.DataFrame(
+                [
+                    {"Variable Symbol": k, "Formal Definition": v}
+                    for k, v in var_defs.items()
+                ]
+            )
+            st.dataframe(df_vars, use_container_width=True)
+        else:
+            st.info("Variable definitions will display once the model is executed.")
+
+    # ---------------------------------------------------------------------------
+    # Tab 4: Select Python Tool
+    # ---------------------------------------------------------------------------
+    with tab4:
         st.markdown(
-            "##### 🎓 Student Verification Guide — Item 5: Intermediate Calculations"
+            "#### ⚙️ Architectural Step 4: Python Tool Selection & Formula Specification"
+        )
+        st.success(
+            f"Selected Deterministic Tool: `{pipeline_response.tool_module}.{pipeline_response.selected_tool_name}()`"
+        )
+        st.markdown("""
+        All numerical computation is routed strictly through deterministic Python functions
+        in `inventory_tools.py` using NumPy and SciPy. LLMs never calculate or reconstruct numerical results independently.
+        """)
+
+        # Student Verification Guide — Item 3: Formula
+        st.markdown("---")
+        st.markdown(
+            "##### 🎓 Student Verification Guide — Item 3: Theoretical Governing Formula(s)"
         )
         st.caption(
-            "Step-by-step intermediate numerical values computed deterministically by the Python tool:"
+            "The algebraic mathematical formulation selected and executed by the Python tool:"
         )
-        inter = res.get("intermediate_calculations", {})
-        if inter:
-            df_inter = pd.DataFrame(
-                [
-                    {"Intermediate Step / Variable": k, "Deterministic Value": str(v)}
-                    for k, v in inter.items()
-                    if not isinstance(v, list)
-                ]
-            )
-            st.dataframe(df_inter, use_container_width=True)
+        formula_latex = (
+            res.get("formula", "") or pipeline_response.explanation.mathematical_formula
+        )
+        if formula_latex:
+            st.latex(formula_latex)
         else:
-            st.info("Intermediate calculations will display when inputs are valid.")
+            st.info("Theoretical formula will display upon model selection.")
 
-        # Student Verification Guide — Item 6: Final Answer
-        st.markdown("##### 🎓 Student Verification Guide — Item 6: Final Answer")
-        st.caption("Structured final decision metrics computed by the Python tool:")
-        final = res.get("final_answer", {})
-        if final:
-            df_final = pd.DataFrame(
-                [
-                    {"Output Decision Metric": k, "Calculated Result": str(v)}
-                    for k, v in final.items()
-                ]
+    # ---------------------------------------------------------------------------
+    # Tab 5: Calculate & Visualization
+    # ---------------------------------------------------------------------------
+    with tab5:
+        st.markdown(
+            "#### 📊 Architectural Step 5: Deterministic Calculation & Visual Analytics"
+        )
+
+        if has_calc_error:
+            st.error(f"Calculation Error: {res['error']}")
+            st.warning(
+                "Please provide all required numerical inputs in the question or select a preset example."
             )
-            st.dataframe(df_final, use_container_width=True)
         else:
-            st.info("Final answer summary will display when inputs are valid.")
+            # Display Key Metrics
+            m_key = pipeline_response.model_key
+
+            if m_key == "eoq":
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Optimal EOQ (Q*)", f"{res.get('eoq_rounded', 0):,} units")
+                c2.metric("Orders per Year", f"{res.get('orders_per_year', 0.0):.1f}")
+                cycle_disp = (
+                    f"{res['cycle_time_days']:.1f} days"
+                    if res.get("cycle_time_days") is not None
+                    else "N/A"
+                )
+                c3.metric("Cycle Time", cycle_disp)
+                c4.metric("Total Annual Cost", f"${res.get('total_annual_cost', 0.0):,.2f}")
+
+                st.pyplot(plot_eoq_curve(res))
+
+            elif m_key == "quantity_discount":
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric(
+                    "Optimal Order Q", f"{res['optimal_order_quantity_rounded']:,} units"
+                )
+                c2.metric("Optimal Unit Price", f"${res['optimal_unit_price']:.2f}")
+                c3.metric("Total Annual Cost", f"${res['optimal_total_cost']:,.2f}")
+                c4.metric("Annual Savings", f"${res['annual_savings_vs_base']:,.2f}")
+
+                st.pyplot(plot_discount_comparison(res))
+
+                st.markdown("##### Detailed Tier Comparison Table:")
+                df_eval = pd.DataFrame(res["tier_evaluations"])
+                st.dataframe(df_eval, use_container_width=True)
+
+            elif m_key == "safety_stock_rop":
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Reorder Point (ROP)", f"{res['reorder_point_rounded']:,} units")
+                c2.metric("Safety Stock Buffer", f"{res['safety_stock_rounded']:,} units")
+                c3.metric("Lead Time Demand", f"{res['lead_time_demand_mean']:.1f} units")
+                c4.metric("Cycle Service Level", f"{res['service_level'] * 100:.1f}%")
+
+                st.pyplot(plot_rop_normal(res))
+
+            elif m_key == "fixed_period_review":
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric(
+                    "Order-Up-To Level (M)", f"{res['order_up_to_level_rounded']:,} units"
+                )
+                c2.metric(
+                    "Recommended Order Q",
+                    f"{res['recommended_order_quantity_rounded']:,} units",
+                )
+                c3.metric("Safety Stock", f"{res['safety_stock_rounded']:,} units")
+                c4.metric(
+                    "Protection Interval",
+                    f"{res['protection_interval']:.0f} {res['time_unit']}",
+                )
+
+                # Horizontal bar visualization of inventory position vs Target M
+                fig, ax = plt.subplots(figsize=(7, 2.5))
+                m_val = res["order_up_to_level"]
+                ip_val = res["current_inventory_position"]
+                q_val = res["recommended_order_quantity"]
+
+                ax.barh(
+                    ["Inventory"],
+                    [ip_val],
+                    color="#3B82F6",
+                    label=f"Current Inventory Position ({ip_val:.0f})",
+                )
+                ax.barh(
+                    ["Inventory"],
+                    [q_val],
+                    left=[ip_val],
+                    color="#10B981",
+                    label=f"Recommended Order ({q_val:.0f})",
+                )
+                ax.axvline(
+                    m_val,
+                    color="#DC2626",
+                    linestyle="--",
+                    lw=2,
+                    label=f"Target M ({m_val:.0f})",
+                )
+
+                ax.set_title(
+                    "Periodic Review: Inventory Position vs Order-Up-To Level (M)",
+                    fontsize=11,
+                    fontweight="bold",
+                )
+                ax.set_xlabel("Units")
+                ax.legend(loc="lower right", fontsize=8)
+                ax.grid(True, axis="x", linestyle=":", alpha=0.5)
+                plt.tight_layout()
+                st.pyplot(fig)
+
+            elif m_key == "newsvendor":
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric(
+                    "Optimal Order (Q*)", f"{res['optimal_order_quantity_rounded']:,} units"
+                )
+                c2.metric(
+                    "Critical Fractile (CR)", f"{res['critical_fractile'] * 100:.2f}%"
+                )
+                c3.metric("Expected Profit", f"${res['expected_profit']:,.2f}")
+                c4.metric(
+                    "In-Stock Probability", f"{res['in_stock_probability'] * 100:.2f}%"
+                )
+
+                st.pyplot(plot_newsvendor_curve(res))
+
+            # Student Verification Guide — Item 4: Formula with Substituted Values
+            st.markdown("---")
+            st.markdown(
+                "##### 🎓 Student Verification Guide — Item 4: Formula with Substituted Values"
+            )
+            st.caption(
+                "Theoretical formula with the student's exact numerical values substituted into each term:"
+            )
+            formula_sub = (
+                res.get("formula_with_substituted_values")
+                or pipeline_response.explanation.formula_with_substituted_values
+            )
+            if formula_sub:
+                st.latex(formula_sub)
+            else:
+                st.info(
+                    "Substituted formula is generated when calculation inputs are complete."
+                )
+
+            # Student Verification Guide — Item 5: Intermediate Calculations
+            st.markdown(
+                "##### 🎓 Student Verification Guide — Item 5: Intermediate Calculations"
+            )
+            st.caption(
+                "Step-by-step intermediate numerical values computed deterministically by the Python tool:"
+            )
+            inter = res.get("intermediate_calculations", {})
+            if inter:
+                df_inter = pd.DataFrame(
+                    [
+                        {"Intermediate Step / Variable": k, "Deterministic Value": str(v)}
+                        for k, v in inter.items()
+                        if not isinstance(v, list)
+                    ]
+                )
+                st.dataframe(df_inter, use_container_width=True)
+            else:
+                st.info("Intermediate calculations will display when inputs are valid.")
+
+            # Student Verification Guide — Item 6: Final Answer
+            st.markdown("##### 🎓 Student Verification Guide — Item 6: Final Answer")
+            st.caption("Structured final decision metrics computed by the Python tool:")
+            final = res.get("final_answer", {})
+            if final:
+                df_final = pd.DataFrame(
+                    [
+                        {"Output Decision Metric": k, "Calculated Result": str(v)}
+                        for k, v in final.items()
+                    ]
+                )
+                st.dataframe(df_final, use_container_width=True)
+            else:
+                st.info("Final answer summary will display when inputs are valid.")
+
+    # ---------------------------------------------------------------------------
+    # Tab 6: Verify & Audit Checks
+    # ---------------------------------------------------------------------------
+    with tab6:
+        st.markdown("#### 🛡️ Architectural Step 6: Mathematical & Domain Verification")
+        v = pipeline_response.verification
+
+        status_class = (
+            "status-passed"
+            if v.status == "PASSED"
+            else ("status-warning" if v.status == "WARNING" else "status-failed")
+        )
+        st.markdown(
+            f"**Verification Audit Status:** <span class='{status_class}'>{v.status}</span>",
+            unsafe_allow_html=True,
+        )
+
+        # Student Verification Guide — Item 7: Verification Checks
+        st.markdown(
+            "##### 🎓 Student Verification Guide — Item 7: Automated Verification Checks"
+        )
+        st.caption(
+            "Deterministic boundary, invariant, and sanity checks executed to verify mathematical and domain validity:"
+        )
+
+        seen_checks = set()
+        all_checks = []
+        tool_checks = (
+            res.get("verification_checks", [])
+            or pipeline_response.explanation.verification_checks
+        )
+        for chk in tool_checks:
+            if chk not in seen_checks:
+                seen_checks.add(chk)
+                all_checks.append(chk)
+        for chk in v.checks_passed:
+            if chk not in seen_checks:
+                seen_checks.add(chk)
+                all_checks.append(chk)
+
+        if all_checks:
+            for chk in all_checks:
+                st.markdown(f"- ✅ {chk}")
+        else:
+            st.info("No verification checks recorded.")
+
+        if v.warnings:
+            st.markdown("##### ⚠️ Warnings & Edge Conditions:")
+            for w in v.warnings:
+                st.warning(w)
+
+        if v.errors:
+            st.markdown("##### ❌ Verification Violations:")
+            for err in v.errors:
+                st.error(err)
+
+    # ---------------------------------------------------------------------------
+    # Tab 7: Explain (Managerial Decision)
+    # ---------------------------------------------------------------------------
+    with tab7:
+        st.markdown("#### 💡 Architectural Step 7: Executive Explanation & Insights")
+        exp = pipeline_response.explanation
+
+        # Executive Summary Box
+        st.info(exp.executive_summary)
+
+        # Cost / Risk Breakdown
+        if exp.cost_or_risk_breakdown:
+            st.markdown("##### 💰 Operational & Cost Breakdown:")
+            col_b1, col_b2 = st.columns(2)
+            half = len(exp.cost_or_risk_breakdown) // 2
+            items = list(exp.cost_or_risk_breakdown.items())
+
+            with col_b1:
+                for k, val in items[:half]:
+                    st.markdown(f"**{k}:** `{val}`")
+            with col_b2:
+                for k, val in items[half:]:
+                    st.markdown(f"**{k}:** `{val}`")
+
+        # Managerial Insights
+        if exp.managerial_insights:
+            st.markdown("##### 📈 Strategic & Managerial Supply Chain Insights:")
+            for ins in exp.managerial_insights:
+                st.markdown(f"- {ins}")
+
+        st.markdown("---")
+        st.caption(
+            "ℹ️ **Student Verification Note**: Mathematical derivations, variable definitions, "
+            "formula substitutions, intermediate calculations, and sanity checks are integrated directly "
+            "into the relevant architectural tabs (Steps 2 through 6 above)."
+        )
+
+
 
 # ---------------------------------------------------------------------------
-# Tab 6: Verify & Audit Checks
+# Main Page View Routing & Layout Execution (v1.5.0)
 # ---------------------------------------------------------------------------
-with tab6:
-    st.markdown("#### 🛡️ Architectural Step 6: Mathematical & Domain Verification")
-    v = pipeline_response.verification
 
-    status_class = (
-        "status-passed"
-        if v.status == "PASSED"
-        else ("status-warning" if v.status == "WARNING" else "status-failed")
+if workspace_view == "📊 Multi-Criteria Classification & Portfolio (CSV)":
+    st.markdown(
+        '<div class="main-title">📊 Multi-Criteria Inventory Classification & Portfolio Valuation</div>',
+        unsafe_allow_html=True,
     )
     st.markdown(
-        f"**Verification Audit Status:** <span class='{status_class}'>{v.status}</span>",
+        '<div class="sub-title">Instructor Stratification Methodology (65% Sales / 35% Hits) & Portfolio Analytics '
+        "| UNCW BAN 517 Supply Chain Analytics</div>",
         unsafe_allow_html=True,
     )
 
-    # Student Verification Guide — Item 7: Verification Checks
-    st.markdown(
-        "##### 🎓 Student Verification Guide — Item 7: Automated Verification Checks"
-    )
-    st.caption(
-        "Deterministic boundary, invariant, and sanity checks executed to verify mathematical and domain validity:"
-    )
-
-    seen_checks = set()
-    all_checks = []
-    tool_checks = (
-        res.get("verification_checks", [])
-        or pipeline_response.explanation.verification_checks
-    )
-    for chk in tool_checks:
-        if chk not in seen_checks:
-            seen_checks.add(chk)
-            all_checks.append(chk)
-    for chk in v.checks_passed:
-        if chk not in seen_checks:
-            seen_checks.add(chk)
-            all_checks.append(chk)
-
-    if all_checks:
-        for chk in all_checks:
-            st.markdown(f"- ✅ {chk}")
+    if uploaded_file is not None:
+        render_csv_data_analysis_section(uploaded_file)
+    elif os.path.exists("ProjectDataV2_UTF8.csv"):
+        st.info(
+            "💡 **Pre-loaded Dataset Active**: Exploring default UNCW course dataset (`ProjectDataV2_UTF8.csv`). "
+            "You can upload your own custom inventory CSV at any time via the sidebar Navigation & Settings panel."
+        )
+        render_csv_data_analysis_section("ProjectDataV2_UTF8.csv")
     else:
-        st.info("No verification checks recorded.")
+        st.warning("⚠️ Please upload an inventory CSV file in the sidebar Navigation & Settings panel to begin.")
 
-    if v.warnings:
-        st.markdown("##### ⚠️ Warnings & Edge Conditions:")
-        for w in v.warnings:
-            st.warning(w)
+elif workspace_view == "🤖 Inventory Decision Agent":
+    render_persistent_variable_dashboard(pipeline_response)
+    st.markdown("---")
+    render_decision_agent_tabs(pipeline_response)
 
-    if v.errors:
-        st.markdown("##### ❌ Verification Violations:")
-        for err in v.errors:
-            st.error(err)
+    if uploaded_file is not None:
+        st.markdown("---")
+        st.info(
+            "📁 **CSV Inventory File Loaded**: A dataset is currently loaded in memory. "
+            "Switch the view to **'📊 Multi-Criteria Classification & Portfolio (CSV)'** or **'📑 Combined View'** "
+            "in the sidebar to review the full classification matrix and portfolio analysis."
+        )
 
-# ---------------------------------------------------------------------------
-# Tab 7: Explain (Managerial Decision)
-# ---------------------------------------------------------------------------
-with tab7:
-    st.markdown("#### 💡 Architectural Step 7: Executive Explanation & Insights")
-    exp = pipeline_response.explanation
-
-    # Executive Summary Box
-    st.info(exp.executive_summary)
-
-    # Cost / Risk Breakdown
-    if exp.cost_or_risk_breakdown:
-        st.markdown("##### 💰 Operational & Cost Breakdown:")
-        col_b1, col_b2 = st.columns(2)
-        half = len(exp.cost_or_risk_breakdown) // 2
-        items = list(exp.cost_or_risk_breakdown.items())
-
-        with col_b1:
-            for k, val in items[:half]:
-                st.markdown(f"**{k}:** `{val}`")
-        with col_b2:
-            for k, val in items[half:]:
-                st.markdown(f"**{k}:** `{val}`")
-
-    # Managerial Insights
-    if exp.managerial_insights:
-        st.markdown("##### 📈 Strategic & Managerial Supply Chain Insights:")
-        for ins in exp.managerial_insights:
-            st.markdown(f"- {ins}")
+elif workspace_view == "📑 Combined View":
+    render_persistent_variable_dashboard(pipeline_response)
+    st.markdown("---")
+    render_decision_agent_tabs(pipeline_response)
 
     st.markdown("---")
-    st.caption(
-        "ℹ️ **Student Verification Note**: Mathematical derivations, variable definitions, "
-        "formula substitutions, intermediate calculations, and sanity checks are integrated directly "
-        "into the relevant architectural tabs (Steps 2 through 6 above)."
-    )
+    st.markdown("## 📊 Multi-Criteria Inventory Classification & Portfolio Valuation (CSV)")
+    if uploaded_file is not None:
+        render_csv_data_analysis_section(uploaded_file)
+    elif os.path.exists("ProjectDataV2_UTF8.csv"):
+        st.info(
+            "💡 **Pre-loaded Dataset Active**: Exploring default UNCW course dataset (`ProjectDataV2_UTF8.csv`). "
+            "Upload custom CSV files anytime in the sidebar."
+        )
+        render_csv_data_analysis_section("ProjectDataV2_UTF8.csv")
 
 
 # ---------------------------------------------------------------------------
@@ -2283,6 +2649,6 @@ with tab7:
 st.markdown("---")
 st.caption(
     "UNCW Masters Program — BAN 517 Supply Chain Analytics | "
-    "Inventory Decision Agent v1.4.0 | "
+    "Inventory Decision Agent v1.5.0 | "
     "Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain"
 )

@@ -1,8 +1,8 @@
 # Supply Chain Analytics: Inventory Decision Agent
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](./CHANGELOG.md)
 [![SemVer](https://img.shields.io/badge/SemVer-2.0.0-green.svg)](https://semver.org/spec/v2.0.0.html)
-[![Tests](https://img.shields.io/badge/tests-79%20passed-brightgreen.svg)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-104%20passed-brightgreen.svg)](./tests/)
 
 An autonomous, multi-model inventory decision agent designed for Supply Chain Analytics (UNCW BAN 517). The agent accepts natural-language inventory inquiries, identifies the relevant operational research model, extracts required parameters without inventing missing inputs, executes deterministic numerical computations, verifies mathematical constraints, and provides actionable executive explanations.
 
@@ -147,6 +147,26 @@ Evaluates and stratifies inventory across two fundamental supply chain dimension
 
 ---
 
+## 🧭 UI Layout Separation & Workspace Views (v1.5.0)
+
+To maintain a clean and focused user experience, the application provides dedicated views via the sidebar panel:
+1. `🤖 Inventory Decision Agent`: Focused natural-language inventory decision agent with prompt entry, NLP stress-test scenarios loader, persistent dashboard, and the 6 architectural tabs (Steps 2 through 7).
+2. `📊 Multi-Criteria Classification & Portfolio (CSV)`: Dedicated, uncluttered workspace for multi-criteria inventory classification (65/35 Sales & Hits methodology), Pareto curves, scatter matrix, and portfolio valuation.
+3. `📑 Combined View`: Sequential presentation with the Decision Agent on top and the CSV Classification section rendered strictly at the bottom below all 7 tabs.
+
+---
+
+## 🧪 NLP Robustness & Stress-Test Scenarios (v1.5.0)
+
+The NLP parsing engine includes 25 stress-test scenarios (5 per inventory category) demonstrating parsing resilience against:
+- **Inadvertent misspellings & typos**: e.g., `demmand`, `ordring costt`, `holdng`, `carying chagre`, `leaddtime`, `servise level`, `reveiw`, `safty`, `qunatity discout`, `salvge`.
+- **Diverse international units of measure**: `liters`, `metric tons`, `gallons`, `barrels`, `kilograms`, `meters`, `crates`, `spools`, `cartons`, `vials`, `hectoliters`, `sacks`, `drums`, `rolls`, `bags`.
+- **International currencies**: `€` (Euros), `£` (British Pounds), `$` (USD), `₹` (Indian Rupees), `¥` (Japanese Yen), `CAD $` (Canadian Dollars), `AUD $` (Australian Dollars), `CHF` (Swiss Francs).
+
+*Visibility Constraint*: These extra stress-test scenarios do not clutter the Preset Example dropdown; they become dynamically available inside an interactive UI expander whenever an inventory sample is chosen or once the model is identified from the user's question.
+
+---
+
 ## 📁 Repository Structure
 
 ```
@@ -161,7 +181,8 @@ Antigravity Project/
 ├── requirements.txt               # Project dependencies
 ├── tests/
 │   ├── test_inventory_tools.py    # Unit & integration tests covering classical models, NLP & verification deliverables
-│   └── test_csv_analysis.py       # Unit tests covering CSV data ingestion, classification algorithms, valuation & schema validation
+│   ├── test_csv_analysis.py       # Unit tests covering CSV data ingestion, classification algorithms, valuation & schema validation
+│   └── test_nlp_stress_robustness.py # Automated verification of all 25 NLP stress-test scenarios
 ├── Update Prompt.txt              # Enhanced system prompts, diagnostic protocols & calculation specifications
 └── README.md                      # Project documentation
 ```
@@ -179,7 +200,7 @@ pip install -r requirements.txt
 ```bash
 pytest -v tests/
 ```
-*(All 79 unit and integration tests verify deterministic mathematical accuracy, strict input validation without inventing inputs, terminology synonym recognition, parameter distinction, parenthetical and Greek notation support [e.g. (d), (σd), (L), (σL), (z)], compound ordering cost phrasing, currency symbols [$ / Rs. / ₹], percentage wording, the 8 educational verification deliverables, demand timeframe normalization, multi-criteria 60/80/90 weighted rank scoring, instructor 65/35 Combined Weighted Scoring, 25% score-range increments, direct numeric entry & 0.1 slider synchronization, CSV dataset ingestion, and end-to-end agent pipelines.)*
+*(All 104 unit and integration tests verify deterministic mathematical accuracy, strict input validation without inventing inputs, terminology synonym recognition, parameter distinction, parenthetical and Greek notation support [e.g. (d), (σd), (L), (σL), (z)], compound ordering cost phrasing, international currency symbols [€, £, $, ₹, ¥, CAD $, AUD $, CHF], diverse measurement units, typo resilience, the 8 educational verification deliverables, demand timeframe normalization, multi-criteria 60/80/90 weighted rank scoring, instructor 65/35 Combined Weighted Scoring, 25% score-range increments, direct numeric entry & 0.1 slider synchronization, CSV dataset ingestion, and end-to-end agent pipelines.)*
 
 ### 3. Launch the Streamlit Web Application
 ```bash
