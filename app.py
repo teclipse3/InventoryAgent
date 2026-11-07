@@ -41,8 +41,55 @@ from inventory_tools import (
     calculate_multicriteria_classification,
     MulticriteriaClassificationResult,
     generate_sample_inventory_dataset,
-    extract_top_items_by_class,
 )
+
+# Resilient import / reload of extract_top_items_by_class to prevent Streamlit Cloud
+# in-memory bytecode/module cache collisions during hot reloads
+try:
+    from inventory_tools import extract_top_items_by_class
+except (ImportError, AttributeError):
+    import sys
+    if "inventory_tools" in sys.modules:
+        del sys.modules["inventory_tools"]
+    try:
+        from inventory_tools import extract_top_items_by_class
+    except (ImportError, AttributeError):
+        def extract_top_items_by_class(
+            df: pd.DataFrame,
+            sales_col: str = "Sales ($)",
+            hits_col: str = "Hits",
+            n_top: int = 5,
+        ) -> dict:
+            rank_col = "Final Rank" if "Final Rank" in df.columns else "Final Inventory Class"
+            classes = ["A", "B", "C", "D"]
+            res = {}
+            for cls in classes:
+                sub = df[df[rank_col] == cls] if rank_col in df.columns else pd.DataFrame()
+                if not sub.empty and sales_col in sub.columns:
+                    cls_sales = float(sub[sales_col].sum())
+                    top_sub = sub.sort_values(by=sales_col, ascending=False).head(n_top).copy()
+                    top_sub.insert(0, "Rank in Class", [f"#{i+1}" for i in range(len(top_sub))])
+                    top_sub["% of Class Sales"] = (
+                        (top_sub[sales_col] / cls_sales * 100.0) if cls_sales > 0 else 0.0
+                    )
+                    top_sum = float(top_sub[sales_col].sum())
+                    conc_pct = (top_sum / cls_sales * 100.0) if cls_sales > 0 else 0.0
+                    res[cls] = {
+                        "items": top_sub,
+                        "total_class_sales": cls_sales,
+                        "top_sales_sum": top_sum,
+                        "concentration_pct": conc_pct,
+                        "class_count": len(sub),
+                    }
+                else:
+                    res[cls] = {
+                        "items": pd.DataFrame(),
+                        "total_class_sales": 0.0,
+                        "top_sales_sum": 0.0,
+                        "concentration_pct": 0.0,
+                        "class_count": 0,
+                    }
+            return res
 from inventory_agent import InventoryDecisionAgent, AgentPipelineResponse
 
 

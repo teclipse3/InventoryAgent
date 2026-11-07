@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Added dual CSV download options: one-click export for the **Complete Classified CSV** and an export button for **Filtered Results** matching current search queries.
 
 ### Fixed
+- **Resilient Module Cache Import Handling on Streamlit Cloud**:
+  - Resolved `ImportError: cannot import name 'extract_top_items_by_class' from 'inventory_tools'` occurring on Streamlit Community Cloud during live container hot-reloads.
+  - Implemented dynamic module cache purging and resilient self-contained fallback architecture in `app.py`, ensuring instantaneous recovery from stale in-memory module states during git deployments.
 - **Refined Methodology Callout & Sequential Step Renumbering**:
   - Renamed `Instructor Methodology (BAN 517)` to `Methodology` across the classification UI and documentation.
   - Renumbered duplicate Step 1 into clean sequential steps (Step 1 - Pareto Thresholds, Step 2 - Numerical Scores, Step 3 - Combined Weighted Score, Step 4 - Final Inventory Class Thresholds).
