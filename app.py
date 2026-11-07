@@ -1820,6 +1820,30 @@ def _sync_num_to_slider(num_key: str, slider_key: str) -> None:
     st.session_state[slider_key] = st.session_state[num_key]
 
 
+def _clear_classification_filters() -> None:
+    """Callback to safely reset classification rank and product search filters before widget instantiation."""
+    st.session_state["classification_rank_filter"] = "All Ranks"
+    st.session_state["classification_product_search"] = ""
+
+
+def _reset_instructor_parameters() -> None:
+    """Callback to safely reset multi-criteria parameters to instructor defaults before widget instantiation."""
+    st.session_state["mc_w_sales_slider"] = 65.0
+    st.session_state["mc_w_sales_num"] = 65.0
+    st.session_state["mc_a_sales_slider"] = 60.0
+    st.session_state["mc_a_sales_num"] = 60.0
+    st.session_state["mc_b_sales_slider"] = 80.0
+    st.session_state["mc_b_sales_num"] = 80.0
+    st.session_state["mc_c_sales_slider"] = 90.0
+    st.session_state["mc_c_sales_num"] = 90.0
+    st.session_state["mc_a_hits_slider"] = 60.0
+    st.session_state["mc_a_hits_num"] = 60.0
+    st.session_state["mc_b_hits_slider"] = 80.0
+    st.session_state["mc_b_hits_num"] = 80.0
+    st.session_state["mc_c_hits_slider"] = 90.0
+    st.session_state["mc_c_hits_num"] = 90.0
+
+
 def _paired_parameter_input(
     label: str,
     default_val: float,
@@ -1978,22 +2002,11 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
 
         col_rst, _ = st.columns([2, 3])
         with col_rst:
-            if st.button("🔄 Reset Parameters to Instructor Defaults (65% Sales / 35% Hits & 60/80/90)", use_container_width=True):
-                st.session_state["mc_w_sales_slider"] = 65.0
-                st.session_state["mc_w_sales_num"] = 65.0
-                st.session_state["mc_a_sales_slider"] = 60.0
-                st.session_state["mc_a_sales_num"] = 60.0
-                st.session_state["mc_b_sales_slider"] = 80.0
-                st.session_state["mc_b_sales_num"] = 80.0
-                st.session_state["mc_c_sales_slider"] = 90.0
-                st.session_state["mc_c_sales_num"] = 90.0
-                st.session_state["mc_a_hits_slider"] = 60.0
-                st.session_state["mc_a_hits_num"] = 60.0
-                st.session_state["mc_b_hits_slider"] = 80.0
-                st.session_state["mc_b_hits_num"] = 80.0
-                st.session_state["mc_c_hits_slider"] = 90.0
-                st.session_state["mc_c_hits_num"] = 90.0
-                st.rerun()
+            st.button(
+                "🔄 Reset Parameters to Instructor Defaults (65% Sales / 35% Hits & 60/80/90)",
+                on_click=_reset_instructor_parameters,
+                use_container_width=True,
+            )
 
     sales_cutoffs = (a_sales, b_sales, c_sales)
     hits_cutoffs = (a_hits, b_hits, c_hits)
@@ -2242,7 +2255,6 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
     with filter_col2:
         search_query = st.text_input(
             "🔍 Search Products (SKU, Name, Category):",
-            value="",
             placeholder="Type SKU or product name to filter...",
             help="Real-time case-insensitive search across Item Number, Item Name, Product, or Category",
             key="classification_product_search",
@@ -2251,10 +2263,11 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
         st.write("")
         st.write("")
         if search_query or class_filter != "All Ranks":
-            if st.button("❌ Clear Filters", use_container_width=True):
-                st.session_state["classification_rank_filter"] = "All Ranks"
-                st.session_state["classification_product_search"] = ""
-                st.rerun()
+            st.button(
+                "❌ Clear Filters",
+                on_click=_clear_classification_filters,
+                use_container_width=True,
+            )
 
     filtered_df = df_classified.copy()
     if class_filter != "All Ranks":

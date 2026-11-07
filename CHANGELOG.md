@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Added dual CSV download options: one-click export for the **Complete Classified CSV** and an export button for **Filtered Results** matching current search queries.
 
 ### Fixed
+- **StreamlitWidgetAlreadyInstantiatedError on Filter Reset & Parameter Defaults**:
+  - Resolved `StreamlitWidgetAlreadyInstantiatedError: st.session_state['classification_rank_filter'] cannot be modified after the widget with that key is instantiated` triggered when clicking the "❌ Clear Filters" button in the Detailed Inventory Classification Table.
+  - Implemented dedicated `on_click=_clear_classification_filters` callback executing in Streamlit's pre-instantiation lifecycle before widgets are rendered.
+  - Refactored the parameter defaults reset button to use `on_click=_reset_instructor_parameters`, guaranteeing zero widget state collisions across all interactive table and parameter controls.
 - **Corrected Column Configuration Types for Letter Ranks in Detailed Classification Table**:
   - Resolved `"The value can not be interpreted as a number"` cell tooltip indicators displayed across `Sales Rank`, `Hits Rank`, and `Final Rank` columns.
   - Replaced inappropriate `st.column_config.NumberColumn(format="%d")` with `st.column_config.TextColumn` for all alphabetical classification ranks ("A", "B", "C", "D"), ensuring text values render cleanly without numeric parsing errors.
@@ -28,7 +32,7 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Eliminated server-side HTML table string compilation overhead (~60MB payload reduction), providing instantaneous table load times, smooth virtualized scrolling, and mathematical client-side column sorting.
   - Integrated resilient try/except fallback architecture preserving styled DataFrame rendering in legacy environments.
 - **Test Suite Expansion**:
-  - Expanded automated test suite from 110 to **112 passing tests** (100% pass rate) with dedicated test coverage for large dataset rendering resilience (>300,000 cells), Styler element configuration, and SKU/product keyword search filtering.
+  - Expanded automated test suite from 110 to **114 passing tests** (100% pass rate) with dedicated test coverage for large dataset rendering resilience (>300,000 cells), Styler element configuration, SKU/product keyword search filtering, and safe pre-instantiation reset callbacks.
 
 ---
 
