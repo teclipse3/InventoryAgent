@@ -2322,6 +2322,18 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
     # This prevents Pandas Styler cell element limit exceptions (StreamlitAPIException > 262,144 cells)
     # on large datasets (20,000 to 30,000+ SKUs) and provides virtual scrolling with client-side sorting.
     detailed_column_config = {
+        "Item Number": st.column_config.TextColumn(
+            label="Item Number",
+            help="Unique SKU identifier",
+        ),
+        "Item Name": st.column_config.TextColumn(
+            label="Item Name",
+            help="Product name or description",
+        ),
+        "UoM": st.column_config.TextColumn(
+            label="UoM",
+            help="Unit of Measure",
+        ),
         s_col_name: st.column_config.NumberColumn(
             label=s_col_name,
             help="Total annual sales revenue",
@@ -2348,12 +2360,13 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
             label="Cum Sales %",
             format="%.2f%%",
         ),
-        "Sales Rank": st.column_config.NumberColumn(
+        "Sales Rank": st.column_config.TextColumn(
             label="Sales Rank",
-            format="%d",
+            help="Pareto sales classification category (A, B, C, or D)",
         ),
         "Sales Rank Score": st.column_config.NumberColumn(
             label="Sales Rank Score",
+            help="Numerical score assigned to sales class (A=4, B=3, C=2, D=1)",
             format="%d",
         ),
         "Hits Cumulative Total": st.column_config.NumberColumn(
@@ -2372,12 +2385,13 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
             label="Cum Hits %",
             format="%.2f%%",
         ),
-        "Hits Rank": st.column_config.NumberColumn(
+        "Hits Rank": st.column_config.TextColumn(
             label="Hits Rank",
-            format="%d",
+            help="Pareto hits classification category (A, B, C, or D)",
         ),
         "Hits Rank Score": st.column_config.NumberColumn(
             label="Hits Rank Score",
+            help="Numerical score assigned to hits class (A=4, B=3, C=2, D=1)",
             format="%d",
         ),
         "Combined Weighted Score": st.column_config.NumberColumn(
@@ -2389,9 +2403,13 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
             label="Weighted Score",
             format="%.2f",
         ),
-        "Final Rank": st.column_config.NumberColumn(
+        "Final Inventory Class": st.column_config.TextColumn(
+            label="Final Inventory Class",
+            help="Final assigned inventory category (A, B, C, or D)",
+        ),
+        "Final Rank": st.column_config.TextColumn(
             label="Final Rank",
-            format="%d",
+            help="Final assigned inventory classification rank (A, B, C, or D)",
         ),
     }
 

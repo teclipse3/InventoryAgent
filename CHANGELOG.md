@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Added dual CSV download options: one-click export for the **Complete Classified CSV** and an export button for **Filtered Results** matching current search queries.
 
 ### Fixed
+- **Corrected Column Configuration Types for Letter Ranks in Detailed Classification Table**:
+  - Resolved `"The value can not be interpreted as a number"` cell tooltip indicators displayed across `Sales Rank`, `Hits Rank`, and `Final Rank` columns.
+  - Replaced inappropriate `st.column_config.NumberColumn(format="%d")` with `st.column_config.TextColumn` for all alphabetical classification ranks ("A", "B", "C", "D"), ensuring text values render cleanly without numeric parsing errors.
+  - Retained `st.column_config.NumberColumn(format="%d")` for integer scoring columns (`Sales Rank Score`, `Hits Rank Score`) and float columns (`Combined Weighted Score`, `Weighted Score`).
 - **Large Dataset Table Virtualization & Styler Limit Resolution**:
   - Resolved `StreamlitAPIException: The dataframe has '731744' cells, but the maximum number of cells allowed to be rendered by Pandas Styler is configured to '262144'` triggered when rendering the Detailed Inventory Classification Table on 20,000 to 30,000 SKU datasets.
   - Configured `pd.set_option("styler.render.max_elements", 5_000_000)` at application module startup to support up to 5,000,000 cells without throwing element threshold exceptions.
