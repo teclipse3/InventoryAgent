@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Added dual CSV download options: one-click export for the **Complete Classified CSV** and an export button for **Filtered Results** matching current search queries.
 
 ### Fixed
+- **Refined Methodology Callout & Sequential Step Renumbering**:
+  - Renamed `Instructor Methodology (BAN 517)` to `Methodology` across the classification UI and documentation.
+  - Renumbered duplicate Step 1 into clean sequential steps (Step 1 - Pareto Thresholds, Step 2 - Numerical Scores, Step 3 - Combined Weighted Score, Step 4 - Final Inventory Class Thresholds).
+  - Formatted mathematical formulas and range intervals with clean markdown formatting, eliminating LaTeX/KaTeX browser text-doubling glitches on copy-paste.
 - **StreamlitWidgetAlreadyInstantiatedError on Filter Reset & Parameter Defaults**:
   - Resolved `StreamlitWidgetAlreadyInstantiatedError: st.session_state['classification_rank_filter'] cannot be modified after the widget with that key is instantiated` triggered when clicking the "❌ Clear Filters" button in the Detailed Inventory Classification Table.
   - Implemented dedicated `on_click=_clear_classification_filters` callback executing in Streamlit's pre-instantiation lifecycle before widgets are rendered.

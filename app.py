@@ -2047,7 +2047,7 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
     # Executive Summary KPIs & Required Classification Summary
     st.markdown("### 📊 Required Classification Summary (Final Categories A, B, C, D)")
     st.caption(
-        "Instructor Methodology (BAN 517): Number of items in each final category and summarized total Sales for each category "
+        "Methodology: Number of items in each final category and summarized total Sales for each category "
         "[Combined Weighted Score = 0.65(Sales Score) + 0.35(Hits Score)]:"
     )
     col_sum_a, col_sum_b, col_sum_c, col_sum_d = st.columns(4)
@@ -2236,15 +2236,15 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
     with col_mat2:
         st.markdown(
             """
-            **Instructor Methodology (BAN 517):**
+            **Methodology:**
             - **Step 1 - Pareto Thresholds**: A (0–60%), B (61–80%), C (81–90%), D (91–100%).
-            - **Step 1 - Numerical Scores**: Class A = 4, Class B = 3, Class C = 2, Class D = 1.
-            - **Step 2 - Combined Weighted Score**: $0.65(\\text{Sales Score}) + 0.35(\\text{Hits Score})$.
-            - **Step 3 - Final Inventory Class Thresholds**:
-              - 🌟 **Class A**: Combined Weighted Score $4.00 - 3.25$
-              - 🛡️ **Class B**: Combined Weighted Score $3.24 - 2.50$
-              - 📦 **Class C**: Combined Weighted Score $2.49 - 1.75$
-              - ⚠️ **Class D**: Combined Weighted Score $< 1.75$
+            - **Step 2 - Numerical Scores**: Class A = 4, Class B = 3, Class C = 2, Class D = 1.
+            - **Step 3 - Combined Weighted Score**: `0.65(Sales Score) + 0.35(Hits Score)`.
+            - **Step 4 - Final Inventory Class Thresholds**:
+              - 🌟 **Class A**: Combined Weighted Score 4.00 – 3.25
+              - 🛡️ **Class B**: Combined Weighted Score 3.24 – 2.50
+              - 📦 **Class C**: Combined Weighted Score 2.49 – 1.75
+              - ⚠️ **Class D**: Combined Weighted Score < 1.75
             """
         )
 
