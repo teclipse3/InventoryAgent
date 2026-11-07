@@ -31,6 +31,8 @@ from inventory_tools import (
     calculate_safety_stock_and_rop,
     calculate_fixed_period_review,
     calculate_newsvendor,
+    calculate_multicriteria_classification,
+    MulticriteriaClassificationResult,
 )
 from inventory_agent import InventoryDecisionAgent, AgentPipelineResponse
 
@@ -150,6 +152,7 @@ PRESET_QUESTIONS = {
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("📦 Navigation & Settings")
+st.sidebar.caption("🏷️ Version: `v1.4.0` | Core SemVer | 2026-11-07")
 
 st.sidebar.markdown("### Select Preset Example")
 selected_preset_label = st.sidebar.selectbox(
@@ -188,7 +191,7 @@ st.sidebar.markdown("### Data Upload")
 uploaded_file = st.sidebar.file_uploader(
     "Upload CSV File",
     type=["csv"],
-    help="Upload an inventory CSV file with Product, Category, Units, and Unit Cost columns.",
+    help="Upload an inventory CSV file with either: (1) Item Number, Item Name, UoM, Sales ($), Hits for multicriteria classification, or (2) Product, Category, Units, Unit Cost for portfolio valuation.",
 )
 
 
@@ -1210,9 +1213,66 @@ def process_and_analyze_inventory_csv(file):
         return None, None, f"Error processing CSV: {str(e)}"
 
 
-def render_csv_data_analysis_section(file):
-    """Render the CSV Data Upload and Inventory Analysis section in the main page."""
-    st.markdown("## 📊 CSV Inventory Data Analysis")
+def process_and_classify_inventory_csv(
+    file_or_df,
+    sales_cutoffs: tuple = (0.60, 0.80, 0.90),
+    hits_cutoffs: tuple = (0.60, 0.80, 0.90),
+    w_sales: float = 0.65,
+    w_hits: float = 0.35,
+):
+    """
+    Process an uploaded inventory CSV file using pandas and perform
+    multi-criteria inventory classification using Sales ($) and Hits.
+
+    Returns
+    -------
+    tuple of (classified_df, result_object, error_message)
+    """
+    try:
+        if isinstance(file_or_df, pd.DataFrame):
+            df = file_or_df.copy()
+        else:
+            if hasattr(file_or_df, "seek"):
+                file_or_df.seek(0)
+            df = pd.read_csv(file_or_df)
+            if hasattr(file_or_df, "seek"):
+                file_or_df.seek(0)
+
+        df.columns = df.columns.astype(str).str.strip()
+
+        # Check for required classification columns
+        cols_lower = [c.lower() for c in df.columns]
+        has_sales = any("sales" in c or "revenue" in c for c in cols_lower)
+        has_hits = any("hit" in c or "freq" in c for c in cols_lower)
+
+        if not has_sales or not has_hits:
+            missing = []
+            if not has_sales:
+                missing.append("Sales ($)")
+            if not has_hits:
+                missing.append("Hits")
+            return (
+                None,
+                None,
+                f"Missing required column(s) for classification: {', '.join(missing)}. "
+                "The inventory file must contain: Item Number, Item Name, UoM, Sales ($), and Hits.",
+            )
+
+        result = calculate_multicriteria_classification(
+            df=df,
+            sales_cutoffs=sales_cutoffs,
+            hits_cutoffs=hits_cutoffs,
+            w_sales=w_sales,
+            w_hits=w_hits,
+        )
+        return result.classified_dataframe, result, None
+    except Exception as e:
+        return None, None, f"Error performing inventory classification: {str(e)}"
+
+
+def render_portfolio_valuation_display(file, preloaded_df=None):
+    """Render the existing Portfolio Inventory Valuation and Category Breakdown."""
+    st.markdown("## 📊 CSV Inventory Portfolio Valuation")
     st.caption(
         "Automated dataset processing, schema validation, and inventory valuation powered by pandas."
     )
@@ -1294,6 +1354,503 @@ def render_csv_data_analysis_section(file):
         ),
         use_container_width=True,
     )
+
+
+def _sync_slider_to_num(slider_key: str, num_key: str) -> None:
+    """Callback to synchronize slider adjustments to numeric input."""
+    st.session_state[num_key] = st.session_state[slider_key]
+
+
+def _sync_num_to_slider(num_key: str, slider_key: str) -> None:
+    """Callback to synchronize direct numeric entries to slider."""
+    st.session_state[slider_key] = st.session_state[num_key]
+
+
+def _paired_parameter_input(
+    label: str,
+    default_val: float,
+    min_val: float,
+    max_val: float,
+    step: float,
+    key_prefix: str,
+    help_text: Optional[str] = None,
+) -> float:
+    """Render a synchronized slider and direct number input side-by-side with 0.1 step increments."""
+    s_key = f"{key_prefix}_slider"
+    n_key = f"{key_prefix}_num"
+    if s_key not in st.session_state:
+        st.session_state[s_key] = float(default_val)
+    if n_key not in st.session_state:
+        st.session_state[n_key] = float(default_val)
+
+    st.markdown(f"**{label}**")
+    col_s, col_n = st.columns([3, 1])
+    with col_s:
+        st.slider(
+            label,
+            min_value=float(min_val),
+            max_value=float(max_val),
+            step=float(step),
+            key=s_key,
+            on_change=_sync_slider_to_num,
+            args=(s_key, n_key),
+            help=help_text,
+            format="%.1f",
+            label_visibility="collapsed",
+        )
+    with col_n:
+        st.number_input(
+            label,
+            min_value=float(min_val),
+            max_value=float(max_val),
+            step=float(step),
+            key=n_key,
+            on_change=_sync_num_to_slider,
+            args=(n_key, s_key),
+            help=f"Direct number entry for {label}",
+            format="%.1f",
+            label_visibility="collapsed",
+        )
+    return float(st.session_state[s_key])
+
+
+def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
+    """Render the Multi-Criteria Inventory Classification section in Streamlit."""
+    st.markdown("## 🏷️ Multicriteria Inventory Classification (Sales & POS Hits)")
+    st.caption(
+        "BAN 517 — Inventory Analytics Agent Project: Multicriteria inventory stratification combining financial magnitude (Sales) "
+        "and operational transaction velocity (POS Hits) using the instructor methodology (65% Sales / 35% POS Hits)."
+    )
+
+    # Cutoff tuning expander with direct entry and 0.1 increments
+    with st.expander("⚙️ Classification Parameters, Pareto Cutoffs & Weights (Optional)", expanded=False):
+        st.markdown("**Criteria Weighting Allocation (Direct Entry & 0.1 Increments):**")
+        col_w_ctrl, col_w_card = st.columns([3, 1])
+        with col_w_ctrl:
+            w_sales_pct = _paired_parameter_input(
+                "Sales Weight (%)",
+                default_val=65.0,
+                min_val=0.0,
+                max_val=100.0,
+                step=0.1,
+                key_prefix="mc_w_sales",
+                help_text="Weight applied to Sales Rank Score (Default: 65.0%). Hits Weight is automatically (100% - Sales Weight).",
+            )
+        with col_w_card:
+            w_sales = round(w_sales_pct / 100.0, 3)
+            w_hits = round(1.0 - w_sales, 3)
+            st.metric("Criteria Weights", f"Sales: {w_sales*100:.1f}%", f"Hits: {w_hits*100:.1f}%")
+
+        c_p1, c_p2 = st.columns(2)
+        with c_p1:
+            st.markdown("#### 💰 Sales ($) Pareto Cutoffs (%)")
+            a_sales_pct = _paired_parameter_input(
+                "Rank A Sales Threshold (%)",
+                default_val=60.0,
+                min_val=0.0,
+                max_val=100.0,
+                step=0.1,
+                key_prefix="mc_a_sales",
+                help_text="Cumulative sales percentage threshold for Rank A (default: 60.0%)",
+            )
+            b_sales_pct = _paired_parameter_input(
+                "Rank B Sales Threshold (%)",
+                default_val=80.0,
+                min_val=0.0,
+                max_val=100.0,
+                step=0.1,
+                key_prefix="mc_b_sales",
+                help_text="Cumulative sales percentage threshold for Rank B (default: 80.0%)",
+            )
+            c_sales_pct = _paired_parameter_input(
+                "Rank C Sales Threshold (%)",
+                default_val=90.0,
+                min_val=0.0,
+                max_val=100.0,
+                step=0.1,
+                key_prefix="mc_c_sales",
+                help_text="Cumulative sales percentage threshold for Rank C (default: 90.0%)",
+            )
+
+        with c_p2:
+            st.markdown("#### 🎯 Hits (Frequency) Pareto Cutoffs (%)")
+            a_hits_pct = _paired_parameter_input(
+                "Rank A Hits Threshold (%)",
+                default_val=60.0,
+                min_val=0.0,
+                max_val=100.0,
+                step=0.1,
+                key_prefix="mc_a_hits",
+                help_text="Cumulative hits percentage threshold for Rank A (default: 60.0%)",
+            )
+            b_hits_pct = _paired_parameter_input(
+                "Rank B Hits Threshold (%)",
+                default_val=80.0,
+                min_val=0.0,
+                max_val=100.0,
+                step=0.1,
+                key_prefix="mc_b_hits",
+                help_text="Cumulative hits percentage threshold for Rank B (default: 80.0%)",
+            )
+            c_hits_pct = _paired_parameter_input(
+                "Rank C Hits Threshold (%)",
+                default_val=90.0,
+                min_val=0.0,
+                max_val=100.0,
+                step=0.1,
+                key_prefix="mc_c_hits",
+                help_text="Cumulative hits percentage threshold for Rank C (default: 90.0%)",
+            )
+
+        # Cutoff validation
+        sales_valid = 0.0 < a_sales_pct < b_sales_pct < c_sales_pct <= 100.0
+        hits_valid = 0.0 < a_hits_pct < b_hits_pct < c_hits_pct <= 100.0
+
+        if not sales_valid:
+            st.warning(
+                f"⚠️ **Sales Cutoffs Out of Order**: Cutoffs must satisfy 0% < Rank A ({a_sales_pct:.1f}%) < Rank B ({b_sales_pct:.1f}%) < Rank C ({c_sales_pct:.1f}%) ≤ 100%. Reverting to baseline (60.0% / 80.0% / 90.0%) for calculation."
+            )
+            a_sales, b_sales, c_sales = 0.60, 0.80, 0.90
+        else:
+            a_sales, b_sales, c_sales = a_sales_pct / 100.0, b_sales_pct / 100.0, c_sales_pct / 100.0
+
+        if not hits_valid:
+            st.warning(
+                f"⚠️ **Hits Cutoffs Out of Order**: Cutoffs must satisfy 0% < Rank A ({a_hits_pct:.1f}%) < Rank B ({b_hits_pct:.1f}%) < Rank C ({c_hits_pct:.1f}%) ≤ 100%. Reverting to baseline (60.0% / 80.0% / 90.0%) for calculation."
+            )
+            a_hits, b_hits, c_hits = 0.60, 0.80, 0.90
+        else:
+            a_hits, b_hits, c_hits = a_hits_pct / 100.0, b_hits_pct / 100.0, c_hits_pct / 100.0
+
+        col_rst, _ = st.columns([2, 3])
+        with col_rst:
+            if st.button("🔄 Reset Parameters to Instructor Defaults (65% Sales / 35% Hits & 60/80/90)", use_container_width=True):
+                st.session_state["mc_w_sales_slider"] = 65.0
+                st.session_state["mc_w_sales_num"] = 65.0
+                st.session_state["mc_a_sales_slider"] = 60.0
+                st.session_state["mc_a_sales_num"] = 60.0
+                st.session_state["mc_b_sales_slider"] = 80.0
+                st.session_state["mc_b_sales_num"] = 80.0
+                st.session_state["mc_c_sales_slider"] = 90.0
+                st.session_state["mc_c_sales_num"] = 90.0
+                st.session_state["mc_a_hits_slider"] = 60.0
+                st.session_state["mc_a_hits_num"] = 60.0
+                st.session_state["mc_b_hits_slider"] = 80.0
+                st.session_state["mc_b_hits_num"] = 80.0
+                st.session_state["mc_c_hits_slider"] = 90.0
+                st.session_state["mc_c_hits_num"] = 90.0
+                st.rerun()
+
+    sales_cutoffs = (a_sales, b_sales, c_sales)
+    hits_cutoffs = (a_hits, b_hits, c_hits)
+
+    target_input = preloaded_df if preloaded_df is not None else file_or_df
+    df_classified, result, error_msg = process_and_classify_inventory_csv(
+        target_input,
+        sales_cutoffs=sales_cutoffs,
+        hits_cutoffs=hits_cutoffs,
+        w_sales=w_sales,
+        w_hits=w_hits,
+    )
+
+    if error_msg:
+        st.error(f"❌ {error_msg}")
+        return
+
+    # Metadata & Dimensions
+    st.markdown("### 📋 Dataset Metadata & Dimensions")
+    m1, m2, m3 = st.columns([1, 1, 2])
+    m1.metric("Total Items / SKUs", f"{result.total_items:,}")
+    m2.metric("Total Attributes", f"{len(df_classified.columns)}")
+    m3.markdown(f"**Detected Columns:** `{', '.join(df_classified.columns)}`")
+
+    # Executive Summary KPIs & Required Classification Summary
+    st.markdown("### 📊 Required Classification Summary (Final Categories A, B, C, D)")
+    st.caption(
+        "Instructor Methodology (BAN 517): Number of items in each final category and summarized total Sales for each category "
+        "[Combined Weighted Score = 0.65(Sales Score) + 0.35(Hits Score)]:"
+    )
+    col_sum_a, col_sum_b, col_sum_c, col_sum_d = st.columns(4)
+    with col_sum_a:
+        cnt_a = result.class_counts.get("A", 0)
+        pct_a = result.class_percentages.get("A", 0.0)
+        sales_a = result.class_sales.get("A", 0.0)
+        spct_a = result.class_sales_pct.get("A", 0.0)
+        st.markdown(
+            render_kpi_card(
+                "Category A (4.00 - 3.25)",
+                f"{cnt_a:,} items ({pct_a:.1f}%)",
+                f"Sales: ${sales_a:,.2f} ({spct_a:.1f}%)",
+                "output",
+            ),
+            unsafe_allow_html=True,
+        )
+    with col_sum_b:
+        cnt_b = result.class_counts.get("B", 0)
+        pct_b = result.class_percentages.get("B", 0.0)
+        sales_b = result.class_sales.get("B", 0.0)
+        spct_b = result.class_sales_pct.get("B", 0.0)
+        st.markdown(
+            render_kpi_card(
+                "Category B (3.24 - 2.50)",
+                f"{cnt_b:,} items ({pct_b:.1f}%)",
+                f"Sales: ${sales_b:,.2f} ({spct_b:.1f}%)",
+                "service",
+            ),
+            unsafe_allow_html=True,
+        )
+    with col_sum_c:
+        cnt_c = result.class_counts.get("C", 0)
+        pct_c = result.class_percentages.get("C", 0.0)
+        sales_c = result.class_sales.get("C", 0.0)
+        spct_c = result.class_sales_pct.get("C", 0.0)
+        st.markdown(
+            render_kpi_card(
+                "Category C (2.49 - 1.75)",
+                f"{cnt_c:,} items ({pct_c:.1f}%)",
+                f"Sales: ${sales_c:,.2f} ({spct_c:.1f}%)",
+                "financial",
+            ),
+            unsafe_allow_html=True,
+        )
+    with col_sum_d:
+        cnt_d = result.class_counts.get("D", 0)
+        pct_d = result.class_percentages.get("D", 0.0)
+        sales_d = result.class_sales.get("D", 0.0)
+        spct_d = result.class_sales_pct.get("D", 0.0)
+        st.markdown(
+            render_kpi_card(
+                "Category D (< 1.75)",
+                f"{cnt_d:,} items ({pct_d:.1f}%)",
+                f"Sales: ${sales_d:,.2f} ({spct_d:.1f}%)",
+                "input",
+            ),
+            unsafe_allow_html=True,
+        )
+
+    # Portfolio Totals Banner
+    st.markdown(
+        f"<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.5rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #334155;'>"
+        f"💰 <b>Total Portfolio Sales:</b> ${result.total_sales:,.2f} &nbsp;|&nbsp; "
+        f"🎯 <b>Total POS Hits:</b> {result.total_hits:,.0f} &nbsp;|&nbsp; "
+        f"📦 <b>Total SKUs:</b> {result.total_items:,} &nbsp;|&nbsp; "
+        f"⚖️ <b>Current Weights:</b> {w_sales*100:.1f}% Sales / {w_hits*100:.1f}% POS Hits"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # Final Weighted Score Ranges & Increment Table Section
+    st.markdown("### 🎯 Final Inventory Classification Allocation Table")
+    st.caption(
+        f"Combined Weighted Score Range: **[{result.weighted_score_min:.2f}, {result.weighted_score_max:.2f}]** "
+        f"| Span: **{result.weighted_score_range:.2f}** | Increments: **4.00-3.25 (A), 3.24-2.50 (B), 2.49-1.75 (C), < 1.75 (D)**"
+    )
+
+    c_tab1, c_tab2 = st.columns([3, 2])
+    with c_tab1:
+        st.markdown("**Classification Categories & Performance Summary:**")
+        display_summary_cols = [
+            "Final Inventory Class",
+            "Combined Weighted Score",
+            "SKU Count",
+            "SKU %",
+            "Total Sales ($)",
+            "Sales %",
+            "Total Hits",
+            "Hits %",
+        ]
+        sum_view = result.range_summary[display_summary_cols] if all(c in result.range_summary.columns for c in display_summary_cols) else result.range_summary
+        st.dataframe(
+            sum_view.style.format(
+                {
+                    "SKU Count": "{:,.0f}",
+                    "SKU %": "{:,.1f}%",
+                    "Total Sales ($)": "${:,.2f}",
+                    "Sales %": "{:,.2f}%",
+                    "Total Hits": "{:,.0f}",
+                    "Hits %": "{:,.2f}%",
+                }
+            ),
+            use_container_width=True,
+        )
+
+    with c_tab2:
+        st.markdown("**SKU Distribution across Final Classes:**")
+        chart_df = result.range_summary.set_index("Final Inventory Class") if "Final Inventory Class" in result.range_summary.columns else result.range_summary.set_index("Final Rank")
+        st.bar_chart(chart_df["SKU Count"])
+
+    # 4x4 Cross-Tabulation Matrix
+    st.markdown("### 🔀 4×4 Cross-Tabulation Matrix (Sales Rank vs POS Hits Rank)")
+    st.caption(
+        "Distribution of inventory items across Sales Rank (rows) and POS Hits Rank (columns):"
+    )
+    col_mat1, col_mat2 = st.columns([1, 1])
+
+    with col_mat1:
+        st.dataframe(
+            result.matrix_crosstab.style.set_properties(
+                **{"text-align": "center", "font-weight": "bold"}
+            ),
+            use_container_width=True,
+        )
+
+    with col_mat2:
+        st.markdown(
+            """
+            **Instructor Methodology (BAN 517):**
+            - **Step 1 - Pareto Thresholds**: A (0–60%), B (61–80%), C (81–90%), D (91–100%).
+            - **Step 1 - Numerical Scores**: Class A = 4, Class B = 3, Class C = 2, Class D = 1.
+            - **Step 2 - Combined Weighted Score**: $0.65(\\text{Sales Score}) + 0.35(\\text{Hits Score})$.
+            - **Step 3 - Final Inventory Class Thresholds**:
+              - 🌟 **Class A**: Combined Weighted Score $4.00 - 3.25$
+              - 🛡️ **Class B**: Combined Weighted Score $3.24 - 2.50$
+              - 📦 **Class C**: Combined Weighted Score $2.49 - 1.75$
+              - ⚠️ **Class D**: Combined Weighted Score $< 1.75$
+            """
+        )
+
+    # Detailed Inventory Table with Calculated Results
+    st.markdown(
+        "### 📦 Detailed Inventory Classification Table (with Calculated Ranks & Scores)"
+    )
+    st.caption(
+        "Columns: Sales Cumulative Total, Sales Cumulative %, Sales Rank, Sales Rank Score, "
+        "Hits Cumulative Total, Hits Cumulative %, Hits Rank, Hits Rank Score, Combined Weighted Score, Final Inventory Class."
+    )
+
+    filter_col1, filter_col2 = st.columns([1, 2])
+    with filter_col1:
+        class_filter = st.selectbox(
+            "Filter Table by Final Rank:",
+            ["All Ranks", "Rank A", "Rank B", "Rank C", "Rank D"],
+        )
+
+    filtered_df = df_classified.copy()
+    if class_filter != "All Ranks":
+        target_cls = class_filter.replace("Rank ", "")
+        filtered_df = filtered_df[filtered_df["Final Rank"] == target_cls]
+
+    s_col_name = result.sales_column_used
+    h_col_name = result.hits_column_used
+
+    # Preferred presentation order of columns
+    preferred_cols = [
+        "Item Number",
+        "Item Name",
+        "UoM",
+        s_col_name,
+        h_col_name,
+        "Sales Cumulative Total",
+        "Sales Cumulative %",
+        "Sales Rank",
+        "Sales Rank Score",
+        "Hits Cumulative Total",
+        "Hits Cumulative %",
+        "Hits Rank",
+        "Hits Rank Score",
+        "Combined Weighted Score",
+        "Weighted Score",
+        "Final Inventory Class",
+        "Final Rank",
+    ]
+    actual_display_cols = [c for c in preferred_cols if c in filtered_df.columns]
+    # Include any remaining columns not explicitly in preferred list
+    remaining_cols = [c for c in filtered_df.columns if c not in actual_display_cols]
+    final_table_df = filtered_df[actual_display_cols + remaining_cols]
+
+    format_dict = {
+        s_col_name: "${:,.2f}",
+        h_col_name: "{:,.0f}",
+        "Sales Cumulative Total": "${:,.2f}",
+        "Sales Cumulative %": "{:,.2f}%",
+        "Sales %": "{:,.2f}%",
+        "Cum Sales %": "{:,.2f}%",
+        "Hits Cumulative Total": "{:,.0f}",
+        "Hits Cumulative %": "{:,.2f}%",
+        "Hits %": "{:,.2f}%",
+        "Cum Hits %": "{:,.2f}%",
+        "Combined Weighted Score": "{:,.2f}",
+        "Weighted Score": "{:,.2f}",
+    }
+
+    st.dataframe(
+        final_table_df.style.format(format_dict, na_rep="N/A"),
+        use_container_width=True,
+    )
+
+    # Download classified CSV
+    csv_bytes = df_classified.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Download Classified Inventory CSV",
+        data=csv_bytes,
+        file_name="classified_inventory_results.csv",
+        mime="text/csv",
+        help="Export the complete inventory dataset with all ranks, scores, and weighted classification results.",
+    )
+
+    # Verification Checks & Assumptions
+    with st.expander(
+        "🎓 Multi-Criteria Audit Verification & Governing Assumptions",
+        expanded=False,
+    ):
+        st.markdown("**Automated Audit Checks Passed:**")
+        for chk in result.verification_checks:
+            st.markdown(f"- ✅ {chk}")
+        st.markdown("---")
+        st.markdown("**Governing Supply Chain Assumptions:**")
+        for asm in result.assumptions:
+            st.markdown(f"- 📋 {asm}")
+
+
+def render_csv_data_analysis_section(file):
+    """
+    Render the CSV Data Upload and Inventory Analysis section in the main page.
+    Automatically detects whether the file corresponds to:
+    1. Multi-Criteria Inventory Classification (Item Number, Item Name, UoM, Sales ($), Hits)
+    2. Portfolio Inventory Valuation (Product, Category, Units, Unit Cost)
+    3. Both (renders tabs for both analyses)
+    """
+    try:
+        if hasattr(file, "seek"):
+            file.seek(0)
+        df = pd.read_csv(file)
+        if hasattr(file, "seek"):
+            file.seek(0)
+    except Exception as e:
+        st.error(f"❌ Error reading uploaded CSV file: {str(e)}")
+        return
+
+    cols_clean = [c.strip().lower() for c in df.columns]
+    has_sales = any("sales" in c or "revenue" in c for c in cols_clean)
+    has_hits = any("hit" in c or "freq" in c for c in cols_clean)
+    is_classification = has_sales and has_hits
+
+    has_units = "units" in cols_clean
+    has_cost = any("unit cost" in c for c in cols_clean)
+    is_portfolio = has_units and has_cost
+
+    if is_classification and is_portfolio:
+        tab_cls, tab_port = st.tabs(
+            [
+                "🏷️ Multi-Criteria Classification (Sales & Hits)",
+                "📊 Portfolio Valuation (Units & Cost)",
+            ]
+        )
+        with tab_cls:
+            render_multicriteria_classification_section(file, preloaded_df=df)
+        with tab_port:
+            render_portfolio_valuation_display(file, preloaded_df=df)
+    elif is_classification:
+        render_multicriteria_classification_section(file, preloaded_df=df)
+    elif is_portfolio:
+        render_portfolio_valuation_display(file, preloaded_df=df)
+    else:
+        st.error(
+            "❌ The uploaded CSV file could not be recognized as a supported inventory dataset.\n\n"
+            "Supported formats:\n"
+            "1. **Inventory Classification**: Must contain `Item Number`, `Item Name`, `UoM`, `Sales ($)`, and `Hits`.\n"
+            "2. **Portfolio Valuation**: Must contain `Product`, `Category`, `Units`, and `Unit Cost`."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1726,5 +2283,6 @@ with tab7:
 st.markdown("---")
 st.caption(
     "UNCW Masters Program — BAN 517 Supply Chain Analytics | "
-    "Inventory Decision Agent Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain"
+    "Inventory Decision Agent v1.4.0 | "
+    "Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain"
 )

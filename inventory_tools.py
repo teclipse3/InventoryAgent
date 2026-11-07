@@ -25,8 +25,9 @@ NumPy, and SciPy. Never invents missing numerical inputs.
 from __future__ import annotations
 import math
 from dataclasses import dataclass, asdict, field
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Tuple
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 
@@ -244,6 +245,68 @@ class NewsvendorResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class MulticriteriaClassificationResult:
+    model: str
+    classified_dataframe: pd.DataFrame
+    total_items: int
+    total_sales: float
+    total_hits: float
+    avg_sales_per_item: float
+    avg_hits_per_item: float
+    class_counts: Dict[str, int]
+    class_percentages: Dict[str, float]
+    class_sales: Dict[str, float]
+    class_sales_pct: Dict[str, float]
+    class_hits: Dict[str, float]
+    class_hits_pct: Dict[str, float]
+    matrix_crosstab: pd.DataFrame
+    multicriteria_summary: pd.DataFrame
+    sales_class_summary: pd.DataFrame
+    hits_class_summary: pd.DataFrame
+    sales_cutoffs: Tuple[float, float, float]
+    hits_cutoffs: Tuple[float, float, float]
+    sales_column_used: str
+    hits_column_used: str
+    w_sales: float = 0.65
+    w_hits: float = 0.35
+    weighted_score_min: float = 1.0
+    weighted_score_max: float = 4.0
+    weighted_score_range: float = 3.0
+    range_intervals: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    range_summary: pd.DataFrame = field(default_factory=pd.DataFrame)
+    verification_checks: List[str] = field(default_factory=list)
+    assumptions: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "model": self.model,
+            "total_items": self.total_items,
+            "total_sales": self.total_sales,
+            "total_hits": self.total_hits,
+            "avg_sales_per_item": self.avg_sales_per_item,
+            "avg_hits_per_item": self.avg_hits_per_item,
+            "class_counts": self.class_counts,
+            "class_percentages": self.class_percentages,
+            "class_sales": self.class_sales,
+            "class_sales_pct": self.class_sales_pct,
+            "class_hits": self.class_hits,
+            "class_hits_pct": self.class_hits_pct,
+            "sales_cutoffs": list(self.sales_cutoffs),
+            "hits_cutoffs": list(self.hits_cutoffs),
+            "sales_column_used": self.sales_column_used,
+            "hits_column_used": self.hits_column_used,
+            "w_sales": self.w_sales,
+            "w_hits": self.w_hits,
+            "weighted_score_min": self.weighted_score_min,
+            "weighted_score_max": self.weighted_score_max,
+            "weighted_score_range": self.weighted_score_range,
+            "range_intervals": self.range_intervals,
+            "verification_checks": self.verification_checks,
+            "assumptions": self.assumptions,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -1534,4 +1597,417 @@ def calculate_newsvendor(
         in_stock_probability=in_stock_prob,
         stockout_probability=stockout_prob,
         notes=notes
+    )
+
+
+# ---------------------------------------------------------------------------
+# 6. Multi-Criteria Inventory Classification Tool
+# ---------------------------------------------------------------------------
+
+def calculate_multicriteria_classification(
+    df: pd.DataFrame,
+    sales_col: Optional[str] = None,
+    hits_col: Optional[str] = None,
+    item_num_col: Optional[str] = None,
+    item_name_col: Optional[str] = None,
+    uom_col: Optional[str] = None,
+    sales_cutoffs: Tuple[float, float, float] = (0.60, 0.80, 0.90),
+    hits_cutoffs: Tuple[float, float, float] = (0.60, 0.80, 0.90),
+    w_sales: float = 0.65,
+    w_hits: float = 0.35,
+) -> MulticriteriaClassificationResult:
+    """
+    Deterministically perform multi-criteria inventory classification using Sales ($) and POS Hits.
+    
+    Implements the instructor Multicriteria Inventory Classification Methodology (BAN 517):
+    Step 1 - Classify Sales and POS Hits Separately:
+             Pareto thresholds: A (0-60%), B (61-80%), C (81-90%), D (91-100%).
+             Rank Scores: A = 4, B = 3, C = 2, D = 1.
+    Step 2 - Combined Weighted Score:
+             Combined Weighted Score = 0.65(Sales Score) + 0.35(Hits Score).
+    Step 3 - Assign Final Inventory Class:
+             A: 4.00 - 3.25
+             B: 3.24 - 2.50
+             C: 2.49 - 1.75
+             D: < 1.75
+    Required Classification Summary:
+             Report the number of items and summarize total Sales in each final category (A, B, C, D).
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input inventory DataFrame containing item metadata, Sales ($), and Hits.
+    sales_col : str, optional
+        Column name representing monetary sales/revenue. If None, auto-detected.
+    hits_col : str, optional
+        Column name representing pick/transaction hits. If None, auto-detected.
+    sales_cutoffs : tuple of floats, default (0.60, 0.80, 0.90)
+        Cumulative percentage thresholds for Rank A, B, and C.
+    hits_cutoffs : tuple of floats, default (0.60, 0.80, 0.90)
+        Cumulative percentage thresholds for Rank A, B, and C.
+    w_sales : float, default 0.65
+        Weight applied to Sales Rank Score (Default: 65% / 0.65).
+    w_hits : float, default 0.35
+        Weight applied to Hits Rank Score (Default: 35% / 0.35).
+        
+    Returns
+    -------
+    MulticriteriaClassificationResult
+        Object containing the classified DataFrame, summary tables, range cutoffs, and audit metrics.
+    """
+    if df is None or not isinstance(df, pd.DataFrame):
+        raise ValueError("A valid pandas DataFrame must be provided for inventory classification.")
+    
+    if df.empty:
+        raise ValueError("The provided inventory DataFrame is empty.")
+
+    # Clean column names (strip whitespace)
+    df_clean = df.copy()
+    df_clean.columns = df_clean.columns.astype(str).str.strip()
+
+    # Detect Sales column
+    s_col = None
+    if sales_col and sales_col in df_clean.columns:
+        s_col = sales_col
+    else:
+        for cand in ["Sales ($)", "Sales", "Sales Amount", "Annual Sales", "Revenue", "Sales_Amount"]:
+            if cand in df_clean.columns:
+                s_col = cand
+                break
+        if not s_col:
+            candidates = [c for c in df_clean.columns if "sales" in c.lower() or "revenue" in c.lower()]
+            if candidates:
+                dollar_cand = [c for c in candidates if "$" in c]
+                s_col = dollar_cand[0] if dollar_cand else candidates[0]
+            else:
+                raise ValueError("Missing required Sales column in CSV. Expected 'Sales ($)' or 'Sales'.")
+
+    # Detect Hits column
+    h_col = None
+    if hits_col and hits_col in df_clean.columns:
+        h_col = hits_col
+    else:
+        for cand in ["Hits", "POS Hits", "POS-Hits", "Order Hits", "Pick Hits", "Frequency", "Transactions"]:
+            if cand in df_clean.columns:
+                h_col = cand
+                break
+        if not h_col:
+            candidates = [c for c in df_clean.columns if "hit" in c.lower() or "freq" in c.lower()]
+            if candidates:
+                h_col = candidates[0]
+            else:
+                raise ValueError("Missing required Hits column in CSV. Expected 'Hits'.")
+
+    # Clean numeric columns
+    df_clean[s_col] = pd.to_numeric(
+        df_clean[s_col]
+        .astype(str)
+        .str.replace("$", "", regex=False)
+        .str.replace(",", "", regex=False)
+        .str.strip(),
+        errors="coerce",
+    ).fillna(0.0)
+
+    df_clean[h_col] = pd.to_numeric(
+        df_clean[h_col]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .str.strip(),
+        errors="coerce",
+    ).fillna(0.0)
+
+    # Prevent negative values
+    df_clean[s_col] = df_clean[s_col].apply(lambda x: max(0.0, float(x)))
+    df_clean[h_col] = df_clean[h_col].apply(lambda x: max(0.0, float(x)))
+
+    total_sales = float(df_clean[s_col].sum())
+    total_hits = float(df_clean[h_col].sum())
+    num_items = len(df_clean)
+
+    # --- Step 1: Single-Criterion Cumulative Pareto Ranking ---
+    def assign_pareto_rank(val: float, cum_pct: float, cutoffs: Tuple[float, float, float], is_first: bool = False) -> str:
+        if val <= 0.0:
+            return "D"
+        c_a, c_b, c_c = cutoffs
+        if is_first or cum_pct <= c_a:
+            return "A"
+        elif cum_pct <= c_b:
+            return "B"
+        elif cum_pct <= c_c:
+            return "C"
+        else:
+            return "D"
+
+    # 1A. Sales Sorting & Cumulative Totals
+    df_sorted_sales = df_clean.sort_values(by=s_col, ascending=False).copy()
+    if total_sales > 0:
+        sales_cum_total = df_sorted_sales[s_col].cumsum()
+        sales_pct = df_sorted_sales[s_col] / total_sales
+        sales_cum_pct = sales_cum_total / total_sales
+    else:
+        sales_cum_total = pd.Series(0.0, index=df_sorted_sales.index)
+        sales_pct = pd.Series(0.0, index=df_sorted_sales.index)
+        sales_cum_pct = pd.Series(0.0, index=df_sorted_sales.index)
+
+    df_sorted_sales["Sales Cumulative Total"] = sales_cum_total
+    df_sorted_sales["Sales %"] = sales_pct * 100.0
+    df_sorted_sales["Sales Cumulative %"] = sales_cum_pct * 100.0
+    df_sorted_sales["Sales Rank"] = [
+        assign_pareto_rank(v, cp, sales_cutoffs, i == 0)
+        for i, (v, cp) in enumerate(zip(df_sorted_sales[s_col], sales_cum_pct))
+    ]
+
+    df_clean["Sales Cumulative Total"] = df_sorted_sales["Sales Cumulative Total"]
+    df_clean["Sales %"] = df_sorted_sales["Sales %"]
+    df_clean["Sales Cumulative %"] = df_sorted_sales["Sales Cumulative %"]
+    df_clean["Cum Sales %"] = df_clean["Sales Cumulative %"]
+    df_clean["Sales Rank"] = df_sorted_sales["Sales Rank"]
+    df_clean["Sales Class"] = df_clean["Sales Rank"]
+
+    # 1B. Hits Sorting & Cumulative Totals
+    df_sorted_hits = df_clean.sort_values(by=h_col, ascending=False).copy()
+    if total_hits > 0:
+        hits_cum_total = df_sorted_hits[h_col].cumsum()
+        hits_pct = df_sorted_hits[h_col] / total_hits
+        hits_cum_pct = hits_cum_total / total_hits
+    else:
+        hits_cum_total = pd.Series(0.0, index=df_sorted_hits.index)
+        hits_pct = pd.Series(0.0, index=df_sorted_hits.index)
+        hits_cum_pct = pd.Series(0.0, index=df_sorted_hits.index)
+
+    df_sorted_hits["Hits Cumulative Total"] = hits_cum_total
+    df_sorted_hits["Hits %"] = hits_pct * 100.0
+    df_sorted_hits["Hits Cumulative %"] = hits_cum_pct * 100.0
+    df_sorted_hits["Hits Rank"] = [
+        assign_pareto_rank(v, cp, hits_cutoffs, i == 0)
+        for i, (v, cp) in enumerate(zip(df_sorted_hits[h_col], hits_cum_pct))
+    ]
+
+    df_clean["Hits Cumulative Total"] = df_sorted_hits["Hits Cumulative Total"]
+    df_clean["Hits %"] = df_sorted_hits["Hits %"]
+    df_clean["Hits Cumulative %"] = df_sorted_hits["Hits Cumulative %"]
+    df_clean["Cum Hits %"] = df_clean["Hits Cumulative %"]
+    df_clean["Hits Rank"] = df_sorted_hits["Hits Rank"]
+    df_clean["Hits Class"] = df_clean["Hits Rank"]
+
+    # --- Step 2: Numerical Rank Scoring ---
+    RANK_SCORE_MAP = {"A": 4, "B": 3, "C": 2, "D": 1}
+    df_clean["Sales Rank Score"] = df_clean["Sales Rank"].map(RANK_SCORE_MAP).fillna(1).astype(int)
+    df_clean["Sales Score"] = df_clean["Sales Rank Score"]
+    df_clean["Hits Rank Score"] = df_clean["Hits Rank"].map(RANK_SCORE_MAP).fillna(1).astype(int)
+    df_clean["Hits Score"] = df_clean["Hits Rank Score"]
+    df_clean["POS Hits Score"] = df_clean["Hits Rank Score"]
+
+    # --- Step 2: Calculate the Combined Weighted Score ---
+    # Default instructor methodology: 0.65(Sales Score) + 0.35(Hits Score)
+    df_clean["Weighted Score"] = (
+        df_clean["Sales Rank Score"] * float(w_sales)
+        + df_clean["Hits Rank Score"] * float(w_hits)
+    )
+    df_clean["Combined Weighted Score"] = df_clean["Weighted Score"]
+
+    # --- Step 3: Assign Final Inventory Class ---
+    # Methodology cutoffs: A (4.00 - 3.25), B (3.24 - 2.50), C (2.49 - 1.75), D (< 1.75)
+    score_min = float(df_clean["Weighted Score"].min())
+    score_max = float(df_clean["Weighted Score"].max())
+    score_range = score_max - score_min
+    inc_width = score_range / 4.0 if score_range > 0 else 0.0
+
+    t_d = score_min + inc_width
+    t_c = score_min + 2.0 * inc_width
+    t_b = score_min + 3.0 * inc_width
+
+    def assign_final_rank(score: float) -> str:
+        if score_range <= 0:
+            if score_min >= 3.25:
+                return "A"
+            elif score_min >= 2.50:
+                return "B"
+            elif score_min >= 1.75:
+                return "C"
+            else:
+                return "D"
+        if score >= t_b - 1e-9:
+            return "A"
+        elif score >= t_c - 1e-9:
+            return "B"
+        elif score >= t_d - 1e-9:
+            return "C"
+        else:
+            return "D"
+
+    df_clean["Final Rank"] = df_clean["Weighted Score"].apply(assign_final_rank)
+    df_clean["Final Inventory Class"] = df_clean["Final Rank"]
+    df_clean["Multicriteria Class"] = df_clean["Final Rank"]
+    df_clean["Matrix Class"] = df_clean["Sales Rank"] + "-" + df_clean["Hits Rank"]
+
+    # Construct Range Summary Table & Intervals (Step 3 Table)
+    classes_order = ["A", "B", "C", "D"]
+    range_intervals = {}
+    range_summary_rows = []
+
+    range_definitions = {
+        "A": {
+            "tier_label": "Top 25%",
+            "instructor_interval": "4.00 - 3.25",
+            "interval_str": "4.00 - 3.25",
+            "low": t_b,
+            "high": score_max,
+        },
+        "B": {
+            "tier_label": "Upper-Mid 25%",
+            "instructor_interval": "3.24 - 2.50",
+            "interval_str": "3.24 - 2.50",
+            "low": t_c,
+            "high": t_b,
+        },
+        "C": {
+            "tier_label": "Lower-Mid 25%",
+            "instructor_interval": "2.49 - 1.75",
+            "interval_str": "2.49 - 1.75",
+            "low": t_d,
+            "high": t_c,
+        },
+        "D": {
+            "tier_label": "Bottom 25%",
+            "instructor_interval": "< 1.75",
+            "interval_str": "< 1.75",
+            "low": score_min,
+            "high": t_d,
+        },
+    }
+
+    class_counts = {}
+    class_pcts = {}
+    class_sales = {}
+    class_sales_pct = {}
+    class_hits = {}
+    class_hits_pct = {}
+
+    for c in classes_order:
+        sub = df_clean[df_clean["Final Rank"] == c]
+        cnt = len(sub)
+        cnt_pct = (cnt / num_items * 100.0) if num_items > 0 else 0.0
+        c_s = float(sub[s_col].sum())
+        c_s_pct = (c_s / total_sales * 100.0) if total_sales > 0 else 0.0
+        c_h = float(sub[h_col].sum())
+        c_h_pct = (c_h / total_hits * 100.0) if total_hits > 0 else 0.0
+
+        class_counts[c] = cnt
+        class_pcts[c] = cnt_pct
+        class_sales[c] = c_s
+        class_sales_pct[c] = c_s_pct
+        class_hits[c] = c_h
+        class_hits_pct[c] = c_h_pct
+
+        r_info = range_definitions[c]
+        range_intervals[c] = {
+            "label": r_info["tier_label"],
+            "interval": r_info["instructor_interval"],
+            "low": r_info["low"],
+            "high": r_info["high"],
+            "count": cnt,
+            "pct": cnt_pct,
+        }
+
+        range_summary_rows.append({
+            "Final Inventory Class": c,
+            "Final Rank": c,
+            "Combined Weighted Score": r_info["instructor_interval"],
+            "Score Interval": r_info["instructor_interval"],
+            "25% Range Increment": r_info["tier_label"],
+            "SKU Count": cnt,
+            "SKU %": cnt_pct,
+            "Total Sales ($)": c_s,
+            "Sales %": c_s_pct,
+            "Total Hits": c_h,
+            "Hits %": c_h_pct,
+        })
+
+    range_summary = pd.DataFrame(range_summary_rows)
+    multicriteria_summary = range_summary.copy()
+
+    # 4x4 Cross-Tabulation Matrix (Sales Rank vs Hits Rank)
+    matrix_crosstab = (
+        pd.crosstab(
+            df_clean["Sales Rank"],
+            df_clean["Hits Rank"],
+            rownames=["Sales Rank"],
+            colnames=["Hits Rank"],
+        )
+        .reindex(index=classes_order, columns=classes_order, fill_value=0)
+    )
+
+    def generate_single_summary(group_col: str, metric_col: str, metric_total: float, metric_label: str) -> pd.DataFrame:
+        rows = []
+        for c in classes_order:
+            sub = df_clean[df_clean[group_col] == c]
+            cnt = len(sub)
+            cnt_pct = (cnt / num_items * 100.0) if num_items > 0 else 0.0
+            tot = float(sub[metric_col].sum())
+            tot_pct = (tot / metric_total * 100.0) if metric_total > 0 else 0.0
+            rows.append({
+                "Rank": c,
+                "SKU Count": cnt,
+                "SKU %": cnt_pct,
+                f"Total {metric_label}": tot,
+                f"{metric_label} %": tot_pct,
+            })
+        return pd.DataFrame(rows)
+
+    sales_class_summary = generate_single_summary("Sales Rank", s_col, total_sales, "Sales")
+    hits_class_summary = generate_single_summary("Hits Rank", h_col, total_hits, "Hits")
+
+    checks = [
+        f"Processed {num_items} items across columns '{s_col}' and '{h_col}'.",
+        f"Total portfolio Sales: ${total_sales:,.2f}; Total portfolio Hits: {total_hits:,.0f}.",
+        f"Weighted Score Range: [{score_min:.2f}, {score_max:.2f}] (Span: {score_range:.2f}, 25% Increment: {inc_width:.2f}).",
+        f"Sum of Final Rank SKU counts equals total items ({sum(class_counts.values())} == {num_items}).",
+        f"Sum of Sales % across all items equals 100.0% (actual: {df_clean['Sales %'].sum():.2f}%).",
+        f"Sum of Hits % across all items equals 100.0% (actual: {df_clean['Hits %'].sum():.2f}%).",
+    ]
+
+    assumptions = [
+        "Multicriteria inventory stratification using two criteria: Sales and POS (Point-of-Sale) Hits.",
+        "Step 1: Single-criterion Pareto classification thresholds: A (0-60%), B (61-80%), C (81-90%), D (91-100%).",
+        "Step 1: Convert each class to numerical score: A = 4, B = 3, C = 2, D = 1.",
+        f"Step 2: Combined Weighted Score = {w_sales:.2f}(Sales Score) + {w_hits:.2f}(Hits Score) [Instructor default: 0.65 Sales / 0.35 POS Hits].",
+        "Step 3: Assign Final Inventory Class: A (4.00 - 3.25), B (3.24 - 2.50), C (2.49 - 1.75), D (< 1.75).",
+        "Items with zero sales or zero hits receive Rank D for that criterion.",
+    ]
+
+    avg_s = (total_sales / num_items) if num_items > 0 else 0.0
+    avg_h = (total_hits / num_items) if num_items > 0 else 0.0
+
+    return MulticriteriaClassificationResult(
+        model="Multi-Criteria Inventory Classification (Weighted Score & 25% Increments)",
+        classified_dataframe=df_clean,
+        total_items=num_items,
+        total_sales=total_sales,
+        total_hits=total_hits,
+        avg_sales_per_item=avg_s,
+        avg_hits_per_item=avg_h,
+        class_counts=class_counts,
+        class_percentages=class_pcts,
+        class_sales=class_sales,
+        class_sales_pct=class_sales_pct,
+        class_hits=class_hits,
+        class_hits_pct=class_hits_pct,
+        matrix_crosstab=matrix_crosstab,
+        multicriteria_summary=multicriteria_summary,
+        sales_class_summary=sales_class_summary,
+        hits_class_summary=hits_class_summary,
+        sales_cutoffs=sales_cutoffs,
+        hits_cutoffs=hits_cutoffs,
+        sales_column_used=s_col,
+        hits_column_used=h_col,
+        w_sales=w_sales,
+        w_hits=w_hits,
+        weighted_score_min=score_min,
+        weighted_score_max=score_max,
+        weighted_score_range=score_range,
+        range_intervals=range_intervals,
+        range_summary=range_summary,
+        verification_checks=checks,
+        assumptions=assumptions,
     )

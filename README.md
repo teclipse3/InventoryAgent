@@ -1,5 +1,9 @@
 # Supply Chain Analytics: Inventory Decision Agent
 
+[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](./CHANGELOG.md)
+[![SemVer](https://img.shields.io/badge/SemVer-2.0.0-green.svg)](https://semver.org/spec/v2.0.0.html)
+[![Tests](https://img.shields.io/badge/tests-79%20passed-brightgreen.svg)](./tests/)
+
 An autonomous, multi-model inventory decision agent designed for Supply Chain Analytics (UNCW BAN 517). The agent accepts natural-language inventory inquiries, identifies the relevant operational research model, extracts required parameters without inventing missing inputs, executes deterministic numerical computations, verifies mathematical constraints, and provides actionable executive explanations.
 
 ---
@@ -107,15 +111,78 @@ This dashboard remains anchored at the top of the screen as users navigate throu
 
 ## 📊 CSV Inventory Data Upload & Analysis
 
-In addition to autonomous natural-language inventory query resolution, the application provides an integrated CSV portfolio analysis pipeline powered by pandas:
+In addition to autonomous natural-language inventory query resolution, the application provides an integrated, dual-schema CSV analysis pipeline powered by pandas:
 - **Location**: Upload control located under `"Data Upload"` at the bottom of the left sidebar (`Upload CSV File`, accepts `.csv` only).
-- **Processing & Schema Validation**: Validates the presence of `Product`, `Category`, `Units`, and `Unit Cost` columns. Reports missing columns if schema requirements are not met.
-- **Dimensional Metadata**: Displays total row count, column count, and column names alongside the raw uploaded dataset.
-- **Portfolio Analytics**:
-  - Total Units aggregated across all SKUs.
-  - Average Unit Cost across the portfolio.
-  - Highest-volume Product identification with lot size.
-  - Grouped Units by Category with tabular display and bar chart breakdown.
-  - Calculated Column: $\text{Inventory Value} = \text{Units} \times \text{Unit Cost}$.
-  - Total portfolio Inventory Value with currency formatting.
+- **Intelligent Schema Detection**: Automatically identifies the uploaded CSV structure:
+  1. **Multi-Criteria Inventory Classification Schema** (`Item Number`, `Item Name`, `UoM`, `Sales ($)`, `Hits`)
+  2. **Portfolio Valuation Schema** (`Product`, `Category`, `Units`, `Unit Cost`)
+  3. **Dual / Hybrid Schema** (renders tabbed views for both analyses simultaneously)
 
+### 🏷️ Multi-Criteria Inventory Classification (Sales & Hits)
+Evaluates and stratifies inventory across two fundamental supply chain dimensions:
+- **Financial Magnitude**: Cumulative contribution from `Sales ($)`.
+- **Operational Transaction Frequency**: Cumulative contribution from `Hits` (order line / pick frequency).
+- **Stratification Engine (Instructor Methodology — BAN 517)**:
+  1. **Single-Criterion Pareto Classification**: Orders records descending by column, computes cumulative totals and cumulative percentages, and assigns ranks:
+     - **Class A**: $0.0\%$ to $60.0\%$ cumulative share ($\le 60\%$)
+     - **Class B**: $61.0\%$ to $80.0\%$ cumulative share
+     - **Class C**: $81.0\%$ to $90.0\%$ cumulative share
+     - **Class D**: $91.0\%$ to $100.0\%$ cumulative share (or zero-value items)
+  2. **Numerical Rank Scoring**: Converts categorical ranks to integer scores:
+     $$\text{Rank A} = 4, \quad \text{Rank B} = 3, \quad \text{Rank C} = 2, \quad \text{Rank D} = 1$$
+  3. **Combined Weighted Scoring**:
+     $$\text{Combined Weighted Score} = 0.65(\text{Sales Score}) + 0.35(\text{Hits Score})$$
+     - Default weights: **65% for Sales** and **35% for POS Hits** (interactive controls permit custom sensitivity tuning).
+  4. **Final Inventory Class Assignment**:
+     - **Final Inventory Class A**: $4.00 - 3.25$
+     - **Final Inventory Class B**: $3.24 - 2.50$
+     - **Final Inventory Class C**: $2.49 - 1.75$
+     - **Final Inventory Class D**: $< 1.75$
+- **Required Classification Summary & Visual Deliverables**:
+  - **Required Classification Summary**: Explicit executive KPI cards and summary table reporting the exact number of items and total Sales for each final category (A, B, C, D).
+  - Allocation Table: Score intervals, SKU counts, portfolio %, aggregate sales, and transaction hit shares.
+  - Interactive Pareto threshold sliders and criteria weighting controls with **direct numeric entry** (`st.number_input`) and **0.1-step increments** (`step=0.1`) synchronized via real-time session state callbacks.
+  - 4×4 Cross-Tabulation Matrix (Sales Rank vs POS Hits Rank).
+  - Detailed, styled data table with class-level filtering and CSV export.
+
+---
+
+## 📁 Repository Structure
+
+```
+Antigravity Project/
+├── app.py                         # Interactive Streamlit Web Application, Dashboard & Dual-Schema CSV Analysis
+├── inventory_agent.py             # 7-step Agent Pipeline & Advanced NLP Semantic Extraction Engine
+├── inventory_tools.py             # Deterministic Python inventory tools (EOQ, ROP, Periodic Review, Newsvendor, MCIC)
+├── example_data.csv               # Sample portfolio valuation CSV (Product, Category, Units, Unit Cost)
+├── example_classification_data.csv# Sample multicriteria classification CSV (Item Number, Item Name, UoM, Sales ($), Hits)
+├── ProjectDataV2_UTF8.csv         # Full 205-SKU enterprise inventory project dataset
+├── CHANGELOG.md                   # Semantic Versioning (SemVer 2.0.0) release history
+├── requirements.txt               # Project dependencies
+├── tests/
+│   ├── test_inventory_tools.py    # Unit & integration tests covering classical models, NLP & verification deliverables
+│   └── test_csv_analysis.py       # Unit tests covering CSV data ingestion, classification algorithms, valuation & schema validation
+├── Update Prompt.txt              # Enhanced system prompts, diagnostic protocols & calculation specifications
+└── README.md                      # Project documentation
+```
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Run the Test Suite
+```bash
+pytest -v tests/
+```
+*(All 79 unit and integration tests verify deterministic mathematical accuracy, strict input validation without inventing inputs, terminology synonym recognition, parameter distinction, parenthetical and Greek notation support [e.g. (d), (σd), (L), (σL), (z)], compound ordering cost phrasing, currency symbols [$ / Rs. / ₹], percentage wording, the 8 educational verification deliverables, demand timeframe normalization, multi-criteria 60/80/90 weighted rank scoring, instructor 65/35 Combined Weighted Scoring, 25% score-range increments, direct numeric entry & 0.1 slider synchronization, CSV dataset ingestion, and end-to-end agent pipelines.)*
+
+### 3. Launch the Streamlit Web Application
+```bash
+streamlit run app.py
+```
+Open your browser at `http://localhost:8501` to interact with preset supply chain scenarios or enter your own custom natural language inventory scenarios.
