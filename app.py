@@ -411,7 +411,7 @@ STRESS_TEST_SCENARIOS = {
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("📦 Navigation & Settings")
-st.sidebar.caption("🏷️ Version: `v1.5.0` | Core SemVer | 2026-11-07")
+st.sidebar.caption("🏷️ Version: `v1.5.1` | Core SemVer | 2026-11-07")
 
 st.sidebar.markdown("### 🧭 Workspace View")
 workspace_view = st.sidebar.radio(
@@ -883,20 +883,32 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
     )
 
     if m_key == "eoq":
-        d_val = res.get("demand", inp.get("annual_demand", 0.0))
-        s_val = res.get("ordering_cost", inp.get("ordering_cost", 0.0))
-        h_val = res.get("holding_cost", inp.get("holding_cost", 0.0))
-        lt_val = res.get("lead_time_days", inp.get("lead_time_days", 0.0))
-        days_val = res.get(
-            "operating_days_per_year", inp.get("working_days_per_year", 250.0)
+        d_val = float(res.get("demand") if res.get("demand") is not None else (inp.get("annual_demand") or 0.0))
+        s_val = float(res.get("ordering_cost") if res.get("ordering_cost") is not None else (inp.get("ordering_cost") or 0.0))
+        h_val = float(res.get("holding_cost") if res.get("holding_cost") is not None else (inp.get("holding_cost") or 0.0))
+        lt_val = res.get("lead_time_days") if res.get("lead_time_days") is not None else inp.get("lead_time_days")
+        days_val = float(
+            res.get("operating_days_per_year")
+            if res.get("operating_days_per_year") is not None
+            else (inp.get("working_days_per_year") or 250.0)
         )
 
         time_unit = inp.get("demand_time_unit")
         if time_unit and time_unit not in ("year", "unspecified"):
             raw_d = inp.get("raw_demand", inp.get(f"{time_unit}_demand", d_val))
-            d_sub = f"Converted from {raw_d:,.0f}/{time_unit}"
+            d_sub = f"Converted from {float(raw_d or d_val):,.0f}/{time_unit}"
         else:
             d_sub = "Annual requirement rate"
+
+        if lt_val is not None and float(lt_val) > 0:
+            lt_disp = f"{float(lt_val):.0f} days"
+            lt_sub = "Supplier delivery window"
+        elif lt_val == 0:
+            lt_disp = "0 days"
+            lt_sub = "Immediate delivery"
+        else:
+            lt_disp = "Not specified"
+            lt_sub = "Optional delivery window"
 
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.markdown(
@@ -924,8 +936,8 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
         c4.markdown(
             render_kpi_card(
                 "Lead Time (L)",
-                f"{lt_val:.0f} days" if lt_val > 0 else "0 days",
-                "Supplier delivery window",
+                lt_disp,
+                lt_sub,
                 "input",
             ),
             unsafe_allow_html=True,
@@ -1180,11 +1192,15 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
         return
 
     if m_key == "eoq":
-        eoq_r = res.get("eoq_rounded", round(res.get("eoq", 0)))
+        eoq_r = res.get("eoq_rounded") if res.get("eoq_rounded") is not None else round(res.get("eoq") or 0)
         rop_val = (
             res.get("reorder_point_rounded")
-            or res.get("reorder_point_deterministic")
-            or res.get("reorder_point")
+            if res.get("reorder_point_rounded") is not None
+            else (
+                res.get("reorder_point_deterministic")
+                if res.get("reorder_point_deterministic") is not None
+                else res.get("reorder_point")
+            )
         )
         rop_disp = f"{round(rop_val):,} units" if rop_val is not None else "N/A"
         rop_sub = (
@@ -1192,14 +1208,16 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
             if rop_val is not None
             else "Lead time not specified"
         )
-        tot_cost = res.get("total_annual_cost", 0.0)
-        orders_yr = res.get("orders_per_year", 0.0)
+        tot_cost = float(res.get("total_annual_cost") or 0.0)
+        orders_yr = float(res.get("orders_per_year") or 0.0)
         cycle_days = res.get("cycle_time_days")
         cycle_sub = (
-            f"Order cycle: {cycle_days:.1f} days"
+            f"Order cycle: {float(cycle_days):.1f} days"
             if cycle_days is not None
             else "Cycle days: N/A"
         )
+        hold_cost = float(res.get("annual_holding_cost") or 0.0)
+        order_cost = float(res.get("annual_ordering_cost") or 0.0)
 
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown(
@@ -1219,7 +1237,7 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
             render_kpi_card(
                 "Total Annual Cost",
                 f"${tot_cost:,.2f}",
-                f"Hold: ${res.get('annual_holding_cost', 0.0):,.0f} | Order: ${res.get('annual_ordering_cost', 0.0):,.0f}",
+                f"Hold: ${hold_cost:,.0f} | Order: ${order_cost:,.0f}",
                 "financial",
             ),
             unsafe_allow_html=True,
@@ -1372,11 +1390,13 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
             ),
             unsafe_allow_html=True,
         )
+        rev_val = float(res.get("review_period") or 0.0)
+        lt_val_fpr = float(res.get("lead_time") or 0.0)
         c4.markdown(
             render_kpi_card(
                 "Protection Interval (P+L)",
                 f"{prot:.0f} {unit}",
-                f"Review ({res.get('review_period', 0):.0f}) + Lead time ({res.get('lead_time', 0):.0f})",
+                f"Review ({rev_val:.0f}) + Lead time ({lt_val_fpr:.0f})",
                 "service",
             ),
             unsafe_allow_html=True,
@@ -1401,11 +1421,13 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
             ),
             unsafe_allow_html=True,
         )
+        cu_val = float(res.get("cost_of_underage") or 0.0)
+        co_val = float(res.get("cost_of_overage") or 0.0)
         c2.markdown(
             render_kpi_card(
                 "Critical Fractile (CR)",
                 f"{cr * 100:.2f}%",
-                f"Cu = ${res.get('cost_of_underage', 0.0):,.2f} | Co = ${res.get('cost_of_overage', 0.0):,.2f}",
+                f"Cu = ${cu_val:,.2f} | Co = ${co_val:,.2f}",
                 "service",
             ),
             unsafe_allow_html=True,
@@ -2334,15 +2356,18 @@ def render_decision_agent_tabs(pipeline_response: AgentPipelineResponse):
 
             if m_key == "eoq":
                 c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Optimal EOQ (Q*)", f"{res.get('eoq_rounded', 0):,} units")
-                c2.metric("Orders per Year", f"{res.get('orders_per_year', 0.0):.1f}")
+                eoq_disp = res.get("eoq_rounded") if res.get("eoq_rounded") is not None else round(res.get("eoq") or 0)
+                orders_disp = float(res.get("orders_per_year") or 0.0)
+                cost_disp = float(res.get("total_annual_cost") or 0.0)
+                c1.metric("Optimal EOQ (Q*)", f"{eoq_disp:,} units")
+                c2.metric("Orders per Year", f"{orders_disp:.1f}")
                 cycle_disp = (
-                    f"{res['cycle_time_days']:.1f} days"
+                    f"{float(res['cycle_time_days']):.1f} days"
                     if res.get("cycle_time_days") is not None
                     else "N/A"
                 )
                 c3.metric("Cycle Time", cycle_disp)
-                c4.metric("Total Annual Cost", f"${res.get('total_annual_cost', 0.0):,.2f}")
+                c4.metric("Total Annual Cost", f"${cost_disp:,.2f}")
 
                 st.pyplot(plot_eoq_curve(res))
 
@@ -2588,7 +2613,7 @@ def render_decision_agent_tabs(pipeline_response: AgentPipelineResponse):
 
 
 # ---------------------------------------------------------------------------
-# Main Page View Routing & Layout Execution (v1.5.0)
+# Main Page View Routing & Layout Execution (v1.5.1)
 # ---------------------------------------------------------------------------
 
 if workspace_view == "📊 Multi-Criteria Classification & Portfolio (CSV)":
@@ -2649,6 +2674,6 @@ elif workspace_view == "📑 Combined View":
 st.markdown("---")
 st.caption(
     "UNCW Masters Program — BAN 517 Supply Chain Analytics | "
-    "Inventory Decision Agent v1.5.0 | "
+    "Inventory Decision Agent v1.5.1 | "
     "Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain"
 )

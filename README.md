@@ -1,8 +1,8 @@
 # Supply Chain Analytics: Inventory Decision Agent
 
-[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)](./CHANGELOG.md)
 [![SemVer](https://img.shields.io/badge/SemVer-2.0.0-green.svg)](https://semver.org/spec/v2.0.0.html)
-[![Tests](https://img.shields.io/badge/tests-104%20passed-brightgreen.svg)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-109%20passed-brightgreen.svg)](./tests/)
 
 An autonomous, multi-model inventory decision agent designed for Supply Chain Analytics (UNCW BAN 517). The agent accepts natural-language inventory inquiries, identifies the relevant operational research model, extracts required parameters without inventing missing inputs, executes deterministic numerical computations, verifies mathematical constraints, and provides actionable executive explanations.
 

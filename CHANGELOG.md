@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 
 ---
 
+## [1.5.1] - 2026-11-07
+
+### Fixed
+- **EOQ Lead Time NoneType Error in Dashboard**:
+  - Resolved `TypeError: '>' not supported between instances of 'NoneType' and 'int'` on `render_persistent_variable_dashboard` triggered when loading EOQ questions without a specified lead time.
+  - Implemented null-safe conditional checks for `lead_time_days`: renders `"Not specified"` with subtitle `"Optional delivery window"` when omitted, `"0 days"` for instantaneous delivery, and `"{L:.0f} days"` when explicitly defined.
+  - Hardened all dashboard KPI cards and Tab 5 metric displays across all inventory models against `None` values returned by calculation results or unextracted parameters.
+  - Expanded automated test suite from 104 to **109 passing tests** (100% pass rate).
+
+---
+
 ## [1.5.0] - 2026-11-07
 
 ### Added
