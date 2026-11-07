@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Added dual CSV download options: one-click export for the **Complete Classified CSV** and an export button for **Filtered Results** matching current search queries.
 
 ### Fixed
+- **UnboundLocalError Resolution for Sales & Hits Column Identifiers in Multi-Criteria View**:
+  - Resolved `UnboundLocalError: cannot access local variable 's_col_name' where it is not associated with a value` at line 2310 in `render_multicriteria_classification_section`.
+  - Moved `s_col_name = result.sales_column_used` and `h_col_name = result.hits_column_used` initialization to the very top of `render_multicriteria_classification_section` immediately after `process_and_classify_inventory_csv` returns, guaranteeing clean lexical scope availability for both the Top 5 Items analytical section and the Detailed Classification Table.
 - **Resilient Module Cache Import Handling on Streamlit Cloud**:
   - Resolved `ImportError: cannot import name 'extract_top_items_by_class' from 'inventory_tools'` occurring on Streamlit Community Cloud during live container hot-reloads.
   - Implemented dynamic module cache purging and resilient self-contained fallback architecture in `app.py`, ensuring instantaneous recovery from stale in-memory module states during git deployments.

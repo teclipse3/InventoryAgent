@@ -2085,6 +2085,9 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
         st.error(f"❌ {error_msg}")
         return
 
+    s_col_name = result.sales_column_used
+    h_col_name = result.hits_column_used
+
     # Metadata & Dimensions
     st.markdown("### 📋 Dataset Metadata & Dimensions")
     m1, m2, m3 = st.columns([1, 1, 2])
