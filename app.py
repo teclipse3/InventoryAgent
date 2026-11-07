@@ -41,6 +41,7 @@ from inventory_tools import (
     calculate_multicriteria_classification,
     MulticriteriaClassificationResult,
     generate_sample_inventory_dataset,
+    extract_top_items_by_class,
 )
 from inventory_agent import InventoryDecisionAgent, AgentPipelineResponse
 
@@ -2247,6 +2248,157 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
               - ⚠️ **Class D**: Combined Weighted Score < 1.75
             """
         )
+
+    # -----------------------------------------------------------------------
+    # Top 5 Items by Sales for Each Final Inventory Class Section
+    # -----------------------------------------------------------------------
+    st.markdown("### 🏆 Top 5 Items by Sales for Each Final Inventory Class")
+    st.caption(
+        "Identifies the top 5 highest-revenue generating SKUs within each final classification tier (A, B, C, D) "
+        "to evaluate revenue concentration and high-value inventory priorities."
+    )
+
+    top_by_class = extract_top_items_by_class(
+        df_classified,
+        sales_col=s_col_name,
+        hits_col=h_col_name,
+        n_top=5,
+    )
+
+    top_class_meta = {
+        "A": {
+            "title": "Category A (4.00 – 3.25)",
+            "badge": "🌟",
+            "desc": "High Financial & Operational Impact",
+            "border_color": "#10B981",
+        },
+        "B": {
+            "title": "Category B (3.24 – 2.50)",
+            "badge": "🛡️",
+            "desc": "Core Intermediate Inventory",
+            "border_color": "#3B82F6",
+        },
+        "C": {
+            "title": "Category C (2.49 – 1.75)",
+            "badge": "📦",
+            "desc": "Low-Velocity Supporting Stock",
+            "border_color": "#F59E0B",
+        },
+        "D": {
+            "title": "Category D (< 1.75)",
+            "badge": "⚠️",
+            "desc": "Slow-Moving & Tail Inventory",
+            "border_color": "#EF4444",
+        },
+    }
+
+    top_column_config = {
+        "Rank in Class": st.column_config.TextColumn(label="Rank", help="Sales rank within this final class"),
+        "Item Number": st.column_config.TextColumn(label="Item Number", help="Unique SKU identifier"),
+        "Item Name": st.column_config.TextColumn(label="Item Name", help="Product name or description"),
+        "Category": st.column_config.TextColumn(label="Category", help="Product category"),
+        "UoM": st.column_config.TextColumn(label="UoM", help="Unit of Measure"),
+        s_col_name: st.column_config.NumberColumn(label=s_col_name, help="Total sales revenue", format="$%.2f"),
+        "% of Class Sales": st.column_config.NumberColumn(label="% of Class", help="Share of total sales for this class", format="%.2f%%"),
+        h_col_name: st.column_config.NumberColumn(label=h_col_name, help="POS transaction frequency", format="%d"),
+        "Combined Weighted Score": st.column_config.NumberColumn(label="Weighted Score", help="0.65(Sales Score) + 0.35(Hits Score)", format="%.2f"),
+    }
+
+    tab_all_top, tab_a_top, tab_b_top, tab_c_top, tab_d_top = st.tabs(
+        [
+            "📋 4-Class Comparison Overview",
+            "🌟 Class A (Top 5)",
+            "🛡️ Class B (Top 5)",
+            "📦 Class C (Top 5)",
+            "⚠️ Class D (Top 5)",
+        ]
+    )
+
+    with tab_all_top:
+        grid_r1_c1, grid_r1_c2 = st.columns(2)
+        grid_r2_c1, grid_r2_c2 = st.columns(2)
+        grid_cols_map = {
+            "A": grid_r1_c1,
+            "B": grid_r1_c2,
+            "C": grid_r2_c1,
+            "D": grid_r2_c2,
+        }
+
+        for c_key, c_col in grid_cols_map.items():
+            meta = top_class_meta[c_key]
+            data = top_by_class.get(c_key, {})
+            items_df = data.get("items", pd.DataFrame())
+            tot_sales = data.get("total_class_sales", 0.0)
+            top_sales = data.get("top_sales_sum", 0.0)
+            conc_pct = data.get("concentration_pct", 0.0)
+            c_count = data.get("class_count", 0)
+
+            with c_col:
+                st.markdown(
+                    f"#### {meta['badge']} {meta['title']}\n"
+                    f"*{meta['desc']} — {c_count:,} items | Total Sales: **${tot_sales:,.2f}***"
+                )
+                if not items_df.empty:
+                    st.caption(f"Top 5 items generate **${top_sales:,.2f}** ({conc_pct:.1f}% of class revenue)")
+                    display_cols = [
+                        col for col in ["Rank in Class", "Item Number", "Item Name", s_col_name, "% of Class Sales", h_col_name]
+                        if col in items_df.columns
+                    ]
+                    st.dataframe(
+                        items_df[display_cols],
+                        column_config=top_column_config,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.info(f"No items classified in {meta['title']}.")
+
+    single_tabs_map = {
+        "A": tab_a_top,
+        "B": tab_b_top,
+        "C": tab_c_top,
+        "D": tab_d_top,
+    }
+
+    for c_key, c_tab in single_tabs_map.items():
+        meta = top_class_meta[c_key]
+        data = top_by_class.get(c_key, {})
+        items_df = data.get("items", pd.DataFrame())
+        tot_sales = data.get("total_class_sales", 0.0)
+        top_sales = data.get("top_sales_sum", 0.0)
+        conc_pct = data.get("concentration_pct", 0.0)
+        c_count = data.get("class_count", 0)
+
+        with c_tab:
+            st.markdown(f"#### {meta['badge']} {meta['title']} — Detailed Top 5 Revenue SKUs")
+            st.caption(f"Operational Focus: {meta['desc']}")
+
+            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+            with kpi_col1:
+                st.metric("Total Class Revenue", f"${tot_sales:,.2f}", f"{c_count:,} total SKUs")
+            with kpi_col2:
+                st.metric("Top 5 Combined Sales", f"${top_sales:,.2f}")
+            with kpi_col3:
+                st.metric("Top 5 Revenue Concentration", f"{conc_pct:.1f}%", "of class revenue")
+
+            if not items_df.empty:
+                full_display_cols = [
+                    col for col in [
+                        "Rank in Class", "Item Number", "Item Name", "Category", "UoM",
+                        s_col_name, "% of Class Sales", h_col_name, "Combined Weighted Score"
+                    ]
+                    if col in items_df.columns
+                ]
+                st.dataframe(
+                    items_df[full_display_cols],
+                    column_config=top_column_config,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.info(f"No items classified in {meta['title']}.")
+
+    st.markdown("---")
 
     # Detailed Inventory Table with Calculated Results
     st.markdown(

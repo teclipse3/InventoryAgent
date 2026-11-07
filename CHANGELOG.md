@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 ## [1.6.1] - 2026-11-07
 
 ### Added
+- **Top 5 Items by Sales for Each Final Inventory Class**:
+  - Implemented `extract_top_items_by_class()` in `inventory_tools.py` extracting the top 5 highest-revenue SKUs for Class A, Class B, Class C, and Class D.
+  - Added a dedicated section in the Multi-Criteria Inventory Classification view featuring:
+    - A 4-Class Comparison Overview tab (2x2 grid displaying side-by-side Top 5 tables, class totals, and revenue concentration percentages).
+    - Dedicated individual tabs for Class A, Class B, Class C, and Class D with detailed SKU KPI metrics (Total Class Revenue, Top 5 Combined Sales, and Revenue Concentration %) and full item attributes.
+  - Formatted with native Arrow `column_config` and `hide_index=True`.
 - **Clickable Version Change Log Navigation & In-App Viewer**:
   - Transformed the Version identifier in the sidebar (`🏷️ Version: [v1.6.1](...)`) and footer into clickable markdown links navigating directly to `CHANGELOG.md` on GitHub.
   - Added an expandable `"📜 In-App Changelog"` viewer in the sidebar allowing users to read the full formatted release notes directly inside the application without navigating away.
@@ -39,7 +45,7 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Eliminated server-side HTML table string compilation overhead (~60MB payload reduction), providing instantaneous table load times, smooth virtualized scrolling, and mathematical client-side column sorting.
   - Integrated resilient try/except fallback architecture preserving styled DataFrame rendering in legacy environments.
 - **Test Suite Expansion**:
-  - Expanded automated test suite from 110 to **115 passing tests** (100% pass rate) with dedicated test coverage for large dataset rendering resilience (>300,000 cells), Styler element configuration, SKU/product keyword search filtering, safe pre-instantiation reset callbacks, and version/changelog URL linking.
+  - Expanded automated test suite from 110 to **116 passing tests** (100% pass rate) with dedicated test coverage for large dataset rendering resilience (>300,000 cells), Styler element configuration, SKU/product keyword search filtering, safe pre-instantiation reset callbacks, version/changelog URL linking, and top 5 items extraction by class.
 
 ---
 
