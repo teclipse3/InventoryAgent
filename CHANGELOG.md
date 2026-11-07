@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 ## [1.6.1] - 2026-11-07
 
 ### Added
+- **Clickable Version Change Log Navigation & In-App Viewer**:
+  - Transformed the Version identifier in the sidebar (`🏷️ Version: [v1.6.1](...)`) and footer into clickable markdown links navigating directly to `CHANGELOG.md` on GitHub.
+  - Added an expandable `"📜 In-App Changelog"` viewer in the sidebar allowing users to read the full formatted release notes directly inside the application without navigating away.
 - **Detailed Inventory Classification Product Search & Multi-Filter**:
   - Added real-time product search (`st.text_input`) in the Detailed Inventory Classification Table allowing users to find specific items by SKU / Item Number, Item Name, Product, or Category.
   - Implemented multi-criteria filter combination linking the Final Rank dropdown (`Rank A`, `Rank B`, `Rank C`, `Rank D`) with real-time text query matching.
@@ -32,7 +35,7 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
   - Eliminated server-side HTML table string compilation overhead (~60MB payload reduction), providing instantaneous table load times, smooth virtualized scrolling, and mathematical client-side column sorting.
   - Integrated resilient try/except fallback architecture preserving styled DataFrame rendering in legacy environments.
 - **Test Suite Expansion**:
-  - Expanded automated test suite from 110 to **114 passing tests** (100% pass rate) with dedicated test coverage for large dataset rendering resilience (>300,000 cells), Styler element configuration, SKU/product keyword search filtering, and safe pre-instantiation reset callbacks.
+  - Expanded automated test suite from 110 to **115 passing tests** (100% pass rate) with dedicated test coverage for large dataset rendering resilience (>300,000 cells), Styler element configuration, SKU/product keyword search filtering, safe pre-instantiation reset callbacks, and version/changelog URL linking.
 
 ---
 

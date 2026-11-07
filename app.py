@@ -417,8 +417,21 @@ STRESS_TEST_SCENARIOS = {
 # Sidebar Controls & Navigation
 # ---------------------------------------------------------------------------
 
+APP_VERSION = "v1.6.1"
+CHANGELOG_URL = "https://github.com/teclipse3/InventoryAgent/blob/main/CHANGELOG.md"
+
 st.sidebar.title("📦 Navigation & Settings")
-st.sidebar.caption("🏷️ Version: `v1.6.1` | Core SemVer | 2026-11-07")
+st.sidebar.caption(
+    f"🏷️ Version: [**`{APP_VERSION}`**]({CHANGELOG_URL}) | Core SemVer | 2026-11-07",
+    help="Click to view the version change log on GitHub",
+)
+
+with st.sidebar.expander("📜 In-App Changelog", expanded=False):
+    if os.path.exists("CHANGELOG.md"):
+        with open("CHANGELOG.md", "r", encoding="utf-8") as f_cl:
+            st.markdown(f_cl.read())
+    else:
+        st.markdown(f"View full release notes on [GitHub CHANGELOG.md]({CHANGELOG_URL})")
 
 st.sidebar.markdown("### 🧭 Workspace View")
 workspace_view = st.sidebar.radio(
@@ -3104,6 +3117,7 @@ elif workspace_view == "📑 Combined View":
 st.markdown("---")
 st.caption(
     "UNCW Masters Program — BAN 517 Supply Chain Analytics | "
-    "Inventory Decision Agent v1.6.1 | "
-    "Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain"
+    f"Inventory Decision Agent [{APP_VERSION}]({CHANGELOG_URL}) | "
+    "Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain",
+    help="Click to view the version change log on GitHub",
 )
