@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 
 ---
 
+## [1.6.0] - 2026-11-07
+
+### Added
+- **Default Sample Demonstration Dataset (20,000 to 30,000 SKUs)**:
+  - Implemented `generate_sample_inventory_dataset()` producing a realistic, randomized inventory dataset between 20,000 and 30,000 items with log-normal Pareto revenue and pick velocity distributions.
+  - Automatically loads this dataset as the default data when no custom CSV has been uploaded, enabling instant exploration of multi-criteria classification and portfolio valuation.
+  - Added prominent demonstration mode banners and sidebar status indicators explicitly denoting that sample data is active.
+- **Dynamic Sample Data Reload & Template Export**:
+  - Added a "🔄 Reload Sample Data (New Random 20k–30k SKUs)" button in both the sidebar and main page to regenerate a fresh synthetic dataset on demand.
+  - Added a "📥 Download Sample Data (CSV)" button allowing visitors to download the active sample dataset directly.
+- **CSV Data Schema Requirements & Field Guide**:
+  - Integrated an expandable instructions guide detailing required headers, accepted aliases (`Item Number`, `Item Name`, `UoM`, `Sales ($)`, `Hits` / `Product`, `Category`, `Units`, `Unit Cost`), and automatic currency/comma sanitization.
+
+### Changed
+- **Fixed SKU Distribution Visual**:
+  - Replaced the default `st.bar_chart` in the Classification Categories tab with a dedicated, customized matplotlib bar chart.
+  - Fixed rotated/angled x-axis labels to remain strictly horizontal (`rotation=0`) for effortless readability across all classes (`Class A`, `Class B`, `Class C`, `Class D`).
+  - Added direct data callouts on top of every bar showing exact SKU count and percentage (`{count:,.0f} ({pct:.1f}%)`) with color-coded supply chain tier styling.
+- **Test Suite Expansion**:
+  - Expanded automated test suite from 109 to **110 passing tests** (100% pass rate) with coverage for sample generation and schema compatibility.
+
+---
+
 ## [1.5.1] - 2026-11-07
 
 ### Fixed

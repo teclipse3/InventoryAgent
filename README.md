@@ -1,8 +1,8 @@
 # Supply Chain Analytics: Inventory Decision Agent
 
-[![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](./CHANGELOG.md)
 [![SemVer](https://img.shields.io/badge/SemVer-2.0.0-green.svg)](https://semver.org/spec/v2.0.0.html)
-[![Tests](https://img.shields.io/badge/tests-109%20passed-brightgreen.svg)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-110%20passed-brightgreen.svg)](./tests/)
 
 An autonomous, multi-model inventory decision agent designed for Supply Chain Analytics (UNCW BAN 517). The agent accepts natural-language inventory inquiries, identifies the relevant operational research model, extracts required parameters without inventing missing inputs, executes deterministic numerical computations, verifies mathematical constraints, and provides actionable executive explanations.
 
@@ -164,6 +164,17 @@ The NLP parsing engine includes 25 stress-test scenarios (5 per inventory catego
 - **International currencies**: `€` (Euros), `£` (British Pounds), `$` (USD), `₹` (Indian Rupees), `¥` (Japanese Yen), `CAD $` (Canadian Dollars), `AUD $` (Australian Dollars), `CHF` (Swiss Francs).
 
 *Visibility Constraint*: These extra stress-test scenarios do not clutter the Preset Example dropdown; they become dynamically available inside an interactive UI expander whenever an inventory sample is chosen or once the model is identified from the user's question.
+
+---
+
+## 🧪 Pre-Loaded Demonstration Dataset & Schema Guide (v1.6.0)
+
+For visitors exploring the web application without an inventory CSV file:
+- **Default Sample Dataset (20,000–30,000 SKUs)**: A realistic enterprise inventory dataset is automatically generated and loaded by default, featuring Pareto log-normal sales volume and transaction velocity distributions.
+- **Dual-Schema Compatibility**: The dataset includes columns for both Multi-Criteria Classification (`Item Number`, `Item Name`, `UoM`, `Sales ($)`, `Hits`) and Portfolio Valuation (`Product`, `Category`, `Units`, `Unit Cost`).
+- **Dynamic Reloading**: An interactive "🔄 Reload Sample Data" button generates a brand new randomized dataset with a new count between 20,000 and 30,000 SKUs on demand.
+- **CSV Schema Guide & Template Export**: An integrated field guide and download button (`📥 Download Sample Data`) allow users to inspect required column headers and clean data formatting.
+- **Horizontal SKU Distribution Visual**: The SKU distribution chart renders with strictly horizontal x-axis labels (`rotation=0`) and direct value callouts (`{count} ({pct}%)`) across all final classes.
 
 ---
 

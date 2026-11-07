@@ -2011,3 +2011,96 @@ def calculate_multicriteria_classification(
         verification_checks=checks,
         assumptions=assumptions,
     )
+
+
+# ---------------------------------------------------------------------------
+# Sample Dataset Generator for Demonstration & Default Site Exploration
+# ---------------------------------------------------------------------------
+
+def generate_sample_inventory_dataset(
+    n: Optional[int] = None, seed: Optional[int] = None
+) -> pd.DataFrame:
+    """
+    Generate a realistic synthetic inventory dataset with between 20,000 and 30,000 SKUs.
+    
+    The dataset includes columns supporting both Multi-Criteria Classification (Item Number,
+    Item Name, UoM, Sales ($), Hits) and Classical Portfolio Valuation (Product, Category,
+    Units, Unit Cost).
+    
+    Sales and Hits follow realistic log-normal (Pareto) distributions where a small fraction
+    of SKUs generate the majority of monetary revenue and picking volume.
+    
+    Parameters
+    ----------
+    n : int, optional
+        Exact number of rows to generate. If None, chosen randomly between 20,000 and 30,000.
+    seed : int, optional
+        Random seed for reproducibility. If None, uses unseeded random state.
+        
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns: Item Number, Item Name, Product, Category, UoM, Units,
+        Unit Cost, Sales ($), Hits.
+    """
+    rng = np.random.default_rng(seed)
+    if n is None:
+        count = int(rng.integers(20000, 30001))
+    else:
+        count = int(n)
+
+    prefixes = [
+        "Precision", "Heavy-Duty", "Industrial", "Pro", "Ultra", "Standard",
+        "Commercial", "Compact", "Modular", "Digital", "High-Flow", "Severe-Duty",
+        "Eco-Smart", "Marine-Grade", "Aero", "Reinforced", "Variable-Speed", "Micro",
+    ]
+    nouns = [
+        "Ball Bearing", "Hydraulic Hose", "Centrifugal Pump", "Ball Valve",
+        "Pressure Sensor", "Fastener Bolt", "Drive V-Belt", "Oil Filter",
+        "Solenoid Valve", "O-Ring Seal Kit", "Pneumatic Cylinder", "Turbine Impeller",
+        "Steel Flange", "Electric Motor", "Thermal Coupling", "Gasket Sheet",
+        "Linear Guide Rail", "Circuit Breaker", "Roller Chain", "Flow Meter",
+        "Gate Valve", "Air Pressure Regulator", "Check Valve", "Gear Reducer",
+        "Relief Valve", "Level Transmitter", "Piston Ring Set", "Heat Exchanger Tube",
+    ]
+    categories = [
+        "Mechanical", "Hydraulics", "Pumps & Valves", "Hardware",
+        "Sensors & Controls", "Electrical", "Seals & Gaskets", "Pneumatics",
+    ]
+    uoms = ["EA", "BOX", "SET", "MTR", "KG", "LTR", "ROL", "PK"]
+
+    # Generate item identifiers
+    item_nums = [f"SKU-{10000 + i}" for i in range(count)]
+    p_pref = rng.choice(prefixes, size=count)
+    p_noun = rng.choice(nouns, size=count)
+    p_spec = rng.integers(10, 999, size=count)
+    item_names = [f"{p} {n} #{s}" for p, n, s in zip(p_pref, p_noun, p_spec)]
+    cat_choices = rng.choice(categories, size=count)
+    uom_choices = rng.choice(uoms, size=count)
+
+    # Realistic Pareto lognormal distribution for sales ($50 to $350,000+)
+    # Mean and sigma tuned to produce ~5-7% Class A, ~10% Class B, ~20% Class C, ~63% Class D
+    sales = np.round(rng.lognormal(mean=7.6, sigma=1.75, size=count) + 50.0, 2)
+
+    # Hits (POS transaction picks: 1 to 2,000)
+    hits = rng.lognormal(mean=3.25, sigma=1.15, size=count).astype(int) + 1
+
+    # Units on hand (5 to 3,500)
+    units = rng.integers(5, 3500, size=count)
+
+    # Unit Cost ($1.50 to $650.00)
+    unit_cost = np.round(rng.uniform(1.50, 480.0, size=count), 2)
+
+    df = pd.DataFrame({
+        "Item Number": item_nums,
+        "Item Name": item_names,
+        "Product": item_names,
+        "Category": cat_choices,
+        "UoM": uom_choices,
+        "Units": units,
+        "Unit Cost": unit_cost,
+        "Sales ($)": sales,
+        "Hits": hits,
+    })
+    return df
+

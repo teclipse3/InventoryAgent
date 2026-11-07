@@ -34,6 +34,7 @@ from inventory_tools import (
     calculate_newsvendor,
     calculate_multicriteria_classification,
     MulticriteriaClassificationResult,
+    generate_sample_inventory_dataset,
 )
 from inventory_agent import InventoryDecisionAgent, AgentPipelineResponse
 
@@ -411,7 +412,7 @@ STRESS_TEST_SCENARIOS = {
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("📦 Navigation & Settings")
-st.sidebar.caption("🏷️ Version: `v1.5.1` | Core SemVer | 2026-11-07")
+st.sidebar.caption("🏷️ Version: `v1.6.0` | Core SemVer | 2026-11-07")
 
 st.sidebar.markdown("### 🧭 Workspace View")
 workspace_view = st.sidebar.radio(
@@ -424,6 +425,33 @@ workspace_view = st.sidebar.radio(
     index=0,
     help="Navigate between the natural language decision agent and the multi-criteria CSV inventory classification engine.",
 )
+
+# ---------------------------------------------------------------------------
+# Sample Dataset Helpers (20,000 to 30,000 SKUs)
+# ---------------------------------------------------------------------------
+
+def get_or_create_sample_dataset() -> pd.DataFrame:
+    """Retrieve or generate the default synthetic sample dataset (20k–30k SKUs)."""
+    if "sample_inventory_df" not in st.session_state or st.session_state["sample_inventory_df"] is None:
+        if os.path.exists("sample_inventory_data.csv"):
+            try:
+                st.session_state["sample_inventory_df"] = pd.read_csv("sample_inventory_data.csv")
+            except Exception:
+                st.session_state["sample_inventory_df"] = generate_sample_inventory_dataset()
+        else:
+            st.session_state["sample_inventory_df"] = generate_sample_inventory_dataset()
+    return st.session_state["sample_inventory_df"]
+
+
+def _reload_sample_dataset():
+    """Callback to regenerate a fresh random sample dataset with 20k–30k entries."""
+    new_sample = generate_sample_inventory_dataset()
+    st.session_state["sample_inventory_df"] = new_sample
+    try:
+        new_sample.to_csv("sample_inventory_data.csv", index=False)
+    except Exception:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Session State Question Synchronization & Callbacks
@@ -493,11 +521,52 @@ elif manual_model == "Newsvendor Model":
     model_override_key = "newsvendor"
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Data Upload")
+st.sidebar.markdown("### 📁 Data Upload & Sample Data")
 uploaded_file = st.sidebar.file_uploader(
-    "Upload CSV File",
+    "Upload Custom CSV File:",
     type=["csv"],
     help="Upload an inventory CSV file with either: (1) Item Number, Item Name, UoM, Sales ($), Hits for multicriteria classification, or (2) Product, Category, Units, Unit Cost for portfolio valuation.",
+)
+
+# Sample dataset state and controls
+sample_df = get_or_create_sample_dataset()
+
+if uploaded_file is not None:
+    st.sidebar.success(f"📁 **Custom File Loaded**: `{uploaded_file.name}`")
+else:
+    st.sidebar.info(f"🧪 **Active Dataset**: Demonstration Sample ({len(sample_df):,} SKUs)")
+
+st.sidebar.button(
+    "🔄 Reload Sample Data (New 20k–30k)",
+    key="sidebar_reload_sample_btn",
+    help="Generate a fresh synthetic inventory dataset with a random count between 20,000 and 30,000 SKUs.",
+    use_container_width=True,
+    on_click=_reload_sample_dataset,
+)
+
+with st.sidebar.expander("📋 Required CSV Fields Guide", expanded=False):
+    st.markdown(
+        """
+        **Multi-Criteria Classification Columns:**
+        - `Item Number` (or `SKU`, `Item_Number`)
+        - `Item Name` (or `Product`, `Description`)
+        - `UoM` (Packaging unit: EA, BOX, SET)
+        - `Sales ($)` (Annual monetary sales)
+        - `Hits` (Pick count / velocity)
+
+        **Portfolio Valuation Columns:**
+        - `Product`, `Category`, `Units`, `Unit Cost`
+        """
+    )
+
+sample_csv_bytes = sample_df.to_csv(index=False).encode("utf-8")
+st.sidebar.download_button(
+    label="📥 Download Sample Data (CSV)",
+    data=sample_csv_bytes,
+    file_name=f"sample_inventory_{len(sample_df)}_skus.csv",
+    mime="text/csv",
+    help="Download the active sample inventory dataset to inspect column headers and data formatting.",
+    use_container_width=True,
 )
 
 agent = InventoryDecisionAgent()
@@ -1486,7 +1555,14 @@ def process_and_analyze_inventory_csv(file):
        Units by Category, Inventory Value column, and total Inventory Value.
     """
     try:
-        df = pd.read_csv(file)
+        if isinstance(file, pd.DataFrame):
+            df = file.copy()
+        else:
+            if hasattr(file, "seek"):
+                file.seek(0)
+            df = pd.read_csv(file)
+            if hasattr(file, "seek"):
+                file.seek(0)
         # Clean column names (strip whitespace)
         df.columns = df.columns.str.strip()
         required_cols = ["Product", "Category", "Units", "Unit Cost"]
@@ -1636,7 +1712,8 @@ def render_portfolio_valuation_display(file, preloaded_df=None):
         "Automated dataset processing, schema validation, and inventory valuation powered by pandas."
     )
 
-    df_analyzed, metrics, error_msg = process_and_analyze_inventory_csv(file)
+    target = preloaded_df if preloaded_df is not None else file
+    df_analyzed, metrics, error_msg = process_and_analyze_inventory_csv(target)
     if error_msg:
         st.error(f"❌ {error_msg}")
         return
@@ -2035,8 +2112,67 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
 
     with c_tab2:
         st.markdown("**SKU Distribution across Final Classes:**")
-        chart_df = result.range_summary.set_index("Final Inventory Class") if "Final Inventory Class" in result.range_summary.columns else result.range_summary.set_index("Final Rank")
-        st.bar_chart(chart_df["SKU Count"])
+        chart_df = (
+            result.range_summary.set_index("Final Inventory Class")
+            if "Final Inventory Class" in result.range_summary.columns
+            else result.range_summary.set_index("Final Rank")
+        )
+        classes_raw = list(chart_df.index)
+        class_labels = [
+            f"Class {str(c).strip()}" if not str(c).strip().lower().startswith("class") else str(c).strip()
+            for c in classes_raw
+        ]
+        counts = [float(x) for x in chart_df["SKU Count"].tolist()]
+        total_skus = sum(counts) if sum(counts) > 0 else 1.0
+
+        color_palette = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444"]
+
+        fig_dist, ax_dist = plt.subplots(figsize=(6.2, 3.5))
+        bars = ax_dist.bar(
+            range(len(class_labels)),
+            counts,
+            color=color_palette[: len(class_labels)],
+            edgecolor="#1E293B",
+            linewidth=1.2,
+            width=0.55,
+        )
+
+        ax_dist.set_xticks(range(len(class_labels)))
+        ax_dist.set_xticklabels(
+            class_labels,
+            rotation=0,
+            fontsize=11,
+            fontweight="bold",
+            color="#1E293B",
+        )
+        ax_dist.set_ylabel("Number of SKUs", fontsize=10, fontweight="bold", color="#334155")
+        ax_dist.grid(axis="y", linestyle=":", alpha=0.55, color="#94A3B8")
+        ax_dist.set_axisbelow(True)
+
+        ax_dist.spines["top"].set_visible(False)
+        ax_dist.spines["right"].set_visible(False)
+        ax_dist.spines["left"].set_color("#CBD5E1")
+        ax_dist.spines["bottom"].set_color("#CBD5E1")
+
+        max_c = max(counts) if counts else 1
+        for bar in bars:
+            h = bar.get_height()
+            pct = (h / total_skus) * 100.0
+            ax_dist.annotate(
+                f"{h:,.0f}\n({pct:.1f}%)",
+                xy=(bar.get_x() + bar.get_width() / 2, h),
+                xytext=(0, 4),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=9.5,
+                fontweight="bold",
+                color="#0F172A",
+            )
+
+        ax_dist.set_ylim(0, max_c * 1.25)
+        plt.tight_layout()
+        st.pyplot(fig_dist)
 
     # 4x4 Cross-Tabulation Matrix
     st.markdown("### 🔀 4×4 Cross-Tabulation Matrix (Sales Rank vs POS Hits Rank)")
@@ -2161,7 +2297,7 @@ def render_multicriteria_classification_section(file_or_df, preloaded_df=None):
             st.markdown(f"- 📋 {asm}")
 
 
-def render_csv_data_analysis_section(file):
+def render_csv_data_analysis_section(file, is_sample: bool = False):
     """
     Render the CSV Data Upload and Inventory Analysis section in the main page.
     Automatically detects whether the file corresponds to:
@@ -2170,14 +2306,94 @@ def render_csv_data_analysis_section(file):
     3. Both (renders tabs for both analyses)
     """
     try:
-        if hasattr(file, "seek"):
-            file.seek(0)
-        df = pd.read_csv(file)
-        if hasattr(file, "seek"):
-            file.seek(0)
+        if isinstance(file, pd.DataFrame):
+            df = file.copy()
+        else:
+            if hasattr(file, "seek"):
+                file.seek(0)
+            df = pd.read_csv(file)
+            if hasattr(file, "seek"):
+                file.seek(0)
     except Exception as e:
         st.error(f"❌ Error reading uploaded CSV file: {str(e)}")
         return
+
+    # Banner displaying active dataset status
+    if is_sample:
+        st.markdown(
+            f"""
+            <div style="background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border: 1.5px solid #93C5FD; border-radius: 10px; padding: 0.95rem 1.25rem; margin-bottom: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div>
+                        <div style="font-size: 1.15rem; font-weight: 700; color: #1E40AF;">
+                            🧪 Active Demonstration Mode: Pre-Loaded Sample Dataset ({len(df):,} SKUs)
+                        </div>
+                        <div style="font-size: 0.88rem; color: #1E3A8A; margin-top: 0.25rem;">
+                            Exploring a <b>synthetic sample dataset</b> generated with a random count between 20,000 and 30,000 items to illustrate multi-criteria Pareto stratification (65% Sales / 35% Hits) and portfolio analytics. Upload your own CSV anytime via the sidebar Navigation & Settings panel.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        col_act1, col_act2 = st.columns([1, 1])
+        with col_act1:
+            st.button(
+                "🔄 Reload Sample Data (New Random 20k–30k SKUs)",
+                key="main_page_reload_sample_btn",
+                on_click=_reload_sample_dataset,
+                help="Regenerate a brand new synthetic dataset with a different random number of SKUs between 20,000 and 30,000.",
+                use_container_width=True,
+            )
+        with col_act2:
+            sample_csv_data = df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "📥 Download Current Sample Dataset (CSV)",
+                data=sample_csv_data,
+                file_name=f"sample_inventory_{len(df)}_skus.csv",
+                mime="text/csv",
+                help="Download the active sample inventory dataset to inspect column headers and data formatting.",
+                use_container_width=True,
+            )
+    else:
+        file_label = getattr(file, "name", "Custom CSV Dataset")
+        st.success(f"📁 **Custom Uploaded Dataset Active**: `{file_label}` ({len(df):,} items loaded)")
+
+    # Comprehensive Required Fields & Instructions Guide (Always accessible)
+    with st.expander("📋 CSV Data Schema Requirements & Field Guide", expanded=False):
+        st.markdown(
+            """
+            ### 📌 Instructions for Uploading Your Own Inventory Data
+            
+            When uploading a CSV file in the sidebar, ensure your dataset includes the required column headers for your desired analysis mode.
+            
+            #### 1. Multi-Criteria Inventory Classification (Sales & POS Hits)
+            Stratifies inventory using the instructor's 65% Sales / 35% POS Hits multi-criteria methodology:
+            
+            | Standard Header | Accepted Variations / Aliases | Description & Data Cleaning Rules |
+            | :--- | :--- | :--- |
+            | **`Item Number`** | `SKU`, `Item_Number`, `Part_Number`, `Item` | Unique product identifier for each SKU. |
+            | **`Item Name`** | `Product`, `Description`, `Item_Description`, `Name` | Detailed item description. |
+            | **`UoM`** | `Unit`, `UOM`, `Unit_of_Measure` | Unit of measure packaging (e.g. `EA`, `BOX`, `MTR`, `KG`, `LTR`). |
+            | **`Sales ($)`** | `Sales`, `Revenue`, `Annual_Sales`, `Total_Sales` | Total annual monetary sales. Currency symbols (`$`, `€`, `£`) and commas are cleaned automatically. |
+            | **`Hits`** | `POS Hits`, `Order Hits`, `Transactions`, `Frequency`, `Picks` | Annual pick or transaction frequency. Commas are cleaned automatically. |
+            
+            #### 2. Portfolio Inventory Valuation (Units & Unit Cost)
+            Analyzes total inventory on-hand asset value, average cost, and category breakdown:
+            
+            | Standard Header | Description & Data Cleaning Rules |
+            | :--- | :--- |
+            | **`Product`** | Product description or identifier (matching `Item Name`). |
+            | **`Category`** | Department or commodity classification grouping. |
+            | **`Units`** | Physical stock on-hand count. Commas are cleaned automatically. |
+            | **`Unit Cost`** | Unit acquisition cost (used to compute Inventory Value = Units × Unit Cost). Currency symbols are cleaned automatically. |
+            
+            > [!TIP]
+            > **Unified CSV Support**: Datasets containing both sets of columns (like our pre-loaded sample dataset) automatically unlock **both** analysis workspaces simultaneously in dedicated tabs!
+            """
+        )
 
     cols_clean = [c.strip().lower() for c in df.columns]
     has_sales = any("sales" in c or "revenue" in c for c in cols_clean)
@@ -2633,7 +2849,7 @@ def render_decision_agent_tabs(pipeline_response: AgentPipelineResponse):
 
 
 # ---------------------------------------------------------------------------
-# Main Page View Routing & Layout Execution (v1.5.1)
+# Main Page View Routing & Layout Execution (v1.6.0)
 # ---------------------------------------------------------------------------
 
 if workspace_view == "📊 Multi-Criteria Classification & Portfolio (CSV)":
@@ -2648,15 +2864,10 @@ if workspace_view == "📊 Multi-Criteria Classification & Portfolio (CSV)":
     )
 
     if uploaded_file is not None:
-        render_csv_data_analysis_section(uploaded_file)
-    elif os.path.exists("ProjectDataV2_UTF8.csv"):
-        st.info(
-            "💡 **Pre-loaded Dataset Active**: Exploring default UNCW course dataset (`ProjectDataV2_UTF8.csv`). "
-            "You can upload your own custom inventory CSV at any time via the sidebar Navigation & Settings panel."
-        )
-        render_csv_data_analysis_section("ProjectDataV2_UTF8.csv")
+        render_csv_data_analysis_section(uploaded_file, is_sample=False)
     else:
-        st.warning("⚠️ Please upload an inventory CSV file in the sidebar Navigation & Settings panel to begin.")
+        active_sample = get_or_create_sample_dataset()
+        render_csv_data_analysis_section(active_sample, is_sample=True)
 
 elif workspace_view == "🤖 Inventory Decision Agent":
     render_persistent_variable_dashboard(pipeline_response)
@@ -2666,9 +2877,17 @@ elif workspace_view == "🤖 Inventory Decision Agent":
     if uploaded_file is not None:
         st.markdown("---")
         st.info(
-            "📁 **CSV Inventory File Loaded**: A dataset is currently loaded in memory. "
+            f"📁 **Custom CSV File Loaded**: `{uploaded_file.name}` is currently active in memory. "
             "Switch the view to **'📊 Multi-Criteria Classification & Portfolio (CSV)'** or **'📑 Combined View'** "
             "in the sidebar to review the full classification matrix and portfolio analysis."
+        )
+    else:
+        st.markdown("---")
+        active_sample = get_or_create_sample_dataset()
+        st.info(
+            f"🧪 **Sample Demonstration Dataset Active ({len(active_sample):,} SKUs)**: Pre-loaded synthetic demonstration data is active. "
+            "Switch the view to **'📊 Multi-Criteria Classification & Portfolio (CSV)'** or **'📑 Combined View'** "
+            "in the sidebar to explore multi-criteria Pareto stratification and portfolio valuation."
         )
 
 elif workspace_view == "📑 Combined View":
@@ -2679,13 +2898,10 @@ elif workspace_view == "📑 Combined View":
     st.markdown("---")
     st.markdown("## 📊 Multi-Criteria Inventory Classification & Portfolio Valuation (CSV)")
     if uploaded_file is not None:
-        render_csv_data_analysis_section(uploaded_file)
-    elif os.path.exists("ProjectDataV2_UTF8.csv"):
-        st.info(
-            "💡 **Pre-loaded Dataset Active**: Exploring default UNCW course dataset (`ProjectDataV2_UTF8.csv`). "
-            "Upload custom CSV files anytime in the sidebar."
-        )
-        render_csv_data_analysis_section("ProjectDataV2_UTF8.csv")
+        render_csv_data_analysis_section(uploaded_file, is_sample=False)
+    else:
+        active_sample = get_or_create_sample_dataset()
+        render_csv_data_analysis_section(active_sample, is_sample=True)
 
 
 # ---------------------------------------------------------------------------
@@ -2694,6 +2910,6 @@ elif workspace_view == "📑 Combined View":
 st.markdown("---")
 st.caption(
     "UNCW Masters Program — BAN 517 Supply Chain Analytics | "
-    "Inventory Decision Agent v1.5.1 | "
+    "Inventory Decision Agent v1.6.0 | "
     "Architecture: 1. Question -> 2. Identify -> 3. Extract -> 4. Tool -> 5. Calculate -> 6. Verify -> 7. Explain"
 )
