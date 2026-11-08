@@ -465,7 +465,7 @@ STRESS_TEST_SCENARIOS = {
 # Sidebar Controls & Navigation
 # ---------------------------------------------------------------------------
 
-APP_VERSION = "v1.6.3"
+APP_VERSION = "v1.6.4"
 CHANGELOG_URL = "https://github.com/teclipse3/InventoryAgent/blob/main/CHANGELOG.md"
 
 st.sidebar.title("📦 Navigation & Settings")
@@ -538,16 +538,19 @@ def _on_preset_example_changed():
         q_text = PRESET_QUESTIONS[sel]
         st.session_state["user_query_text"] = q_text
         st.session_state["main_user_query_textarea"] = q_text
+        st.session_state.pop("pending_manual_unit_cost", None)
 
 
 def _on_textarea_changed():
     st.session_state["user_query_text"] = st.session_state.get("main_user_query_textarea", "")
+    st.session_state.pop("pending_manual_unit_cost", None)
 
 
 def _load_stress_scenario(query_to_load: str):
     st.session_state["user_query_text"] = query_to_load
     st.session_state["main_user_query_textarea"] = query_to_load
     st.session_state["preset_example_selectbox"] = "Select below or write custom question -->"
+    st.session_state.pop("pending_manual_unit_cost", None)
 
 
 st.sidebar.markdown("---")
@@ -637,9 +640,14 @@ st.sidebar.download_button(
 )
 
 agent = InventoryDecisionAgent()
+manual_overrides = {}
+if "pending_manual_unit_cost" in st.session_state and st.session_state["pending_manual_unit_cost"] is not None:
+    manual_overrides["unit_cost"] = float(st.session_state["pending_manual_unit_cost"])
+
 pipeline_response: AgentPipelineResponse = agent.process_query(
     customer_question=st.session_state["user_query_text"],
     manual_model_override=model_override_key,
+    manual_input_overrides=manual_overrides if manual_overrides else None,
 )
 
 
@@ -1360,9 +1368,23 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
         if "Must provide either 'holding_cost' directly or both 'holding_cost_rate' and 'unit_cost'" in err_msg:
             st.warning(
                 "⚠️ **Calculation Pending**: Holding cost rate was provided as a percentage, but unit cost "
-                "(purchase price) is missing. Please provide the unit cost (e.g. *'unit cost is $25'*) or specify "
-                "holding cost as a dollar amount (e.g. *'holding cost is $5/unit/year'*)."
+                "(purchase price) is missing from the question. Enter the unit cost below or update the query to complete calculation:"
             )
+            c_input_col1, c_input_col2 = st.columns([2, 3])
+            with c_input_col1:
+                manual_uc = st.number_input(
+                    "Unit Purchase Price ($/unit):",
+                    min_value=0.01,
+                    value=float(st.session_state.get("pending_manual_unit_cost") or 25.0),
+                    step=1.0,
+                    key="interactive_unit_cost_entry",
+                )
+            with c_input_col2:
+                st.write("")
+                st.write("")
+                if st.button("⚡ Apply Unit Cost & Calculate", key="btn_apply_pending_uc", type="primary"):
+                    st.session_state["pending_manual_unit_cost"] = manual_uc
+                    st.rerun()
         else:
             st.warning(f"⚠️ Calculation Pending: {res['error']}")
         return

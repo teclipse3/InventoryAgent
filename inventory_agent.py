@@ -738,6 +738,23 @@ class InventoryNLPParser:
                 rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:to\s+purchase|unit\s+costs?t?|purchase\s+costs?t?|costs?t?\s+per\s+(?:unit|{unit_nouns})|unit\s+purchase\s+price|per\s+(?:unit|{unit_nouns})\s+purchase|wholesale)",
                 # Standalone "Cost is $25" / "Cost: $25" / "Cost = $25" (Strict negative lookbehinds so it does NOT match ordering, receiving, setup, holding, etc.)
                 rf"(?<!order )(?<!orders )(?<!ordering )(?<!ordr )(?<!ordrs )(?<!ordring )(?<!setup )(?<!set-up )(?<!receiving )(?<!transportation )(?<!holding )(?<!carrying )(?<!shortage )(?<!underage )(?<!overage )(?<!fixed )\bcosts?t?{var_sym}\s*(?:is|are|equals|of|would\s+be)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*(?:per\s+ord[e]?r|to\s+place|{pct_word}))",
+                # "supplier / vendor charges $12 / charges $12 per unit"
+                rf"(?:supplier|vendor|distributor|manufacturer)\s+(?:charges?|prices?|quotes?|costs?)\s*(?:of|is|at)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+                rf"charges?\s+{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns})|\/{unit_nouns})",
+                # "the cost of each unit is $12"
+                rf"(?:the\s+)?costs?t?\s+of\s+(?:each|every|one|an?)\s+(?:unit|item|product|component|{unit_nouns})\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+                # "the price of each unit is $12"
+                rf"(?:the\s+)?pr[i|y]ce\s+of\s+(?:each|every|one|an?)\s+(?:unit|item|product|component|{unit_nouns})\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+                # "at / for a cost of $12 / price of $12"
+                rf"(?:at|for)\s+(?:an?\s+)?(?:costs?t?|pr[i|y]ce)\s+of\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?",
+                # "at $12 per unit / at $12 each / for $12 per unit"
+                rf"(?:at|for)\s+{curr_sym_explicit}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns})|\/{unit_nouns}|a\s+unit|an\s+item)",
+                # "unit value is $12 / unit value of $12"
+                rf"(?:unit\s+val[u]?e|val[u]?e\s+per\s+(?:unit|{unit_nouns}))\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+                # "valued at $12 per unit"
+                rf"val[u]?ed\s+at\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?",
+                # "each unit is $12 / each item is $12"
+                rf"each\s+(?:unit|item|product|component|{unit_nouns})\s*(?:is|costs?t?|runs?)\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
             ]
             for pat in unit_cost_patterns:
                 m = re.search(pat, text_clean, re.IGNORECASE)
@@ -754,12 +771,6 @@ class InventoryNLPParser:
             rf"(?<!wholesale )(?<!purchase )(?<!baseline )(?<!regular )(?<!standard )(?<!unit )\bprice\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
         ]
         for pat in price_patterns:
-            m = re.search(pat, text_clean, re.IGNORECASE)
-            if m:
-                inputs["selling_price"] = float(m.group(1))
-                break
-
-        # Salvage value
             m = re.search(pat, text_clean, re.IGNORECASE)
             if m:
                 inputs["selling_price"] = float(m.group(1))
@@ -881,8 +892,9 @@ class InventoryNLPParser:
         # e.g., "charges $12 per unit for orders below 500 units, $11.50 for 500-999 units, and $11 for orders of 1,000 units or more"
         # Must stay on the same line (no spanning across newlines) and require explicit preposition (for/if/on/when)
         h_space = r"[^\S\r\n]*"
+        pf_prefix = rf"(?:(?:charges?\s+)?{curr_sym_explicit}|charges?\s+{curr_sym})"
         pf_below_pat = (
-            rf"(?:charges?\s+)?{curr_sym_explicit}{h_space}(\d+(?:\.\d+)?){h_space}"
+            rf"{pf_prefix}{h_space}(\d+(?:\.\d+)?){h_space}"
             rf"(?:per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?{h_space}"
             rf"(?:for|if|on|when\s+ordering){h_space}(?:orders?\s+(?:of\s+)?)?(?:below|under|less\s+than){h_space}"
             rf"(\d+){h_space}(?:{unit_nouns})?"
@@ -895,7 +907,7 @@ class InventoryNLPParser:
 
         # Bounded range price-first: "$11.50 for 500-999 units", "charges $11.50 per unit for 500 to 999 units"
         pf_range_pat = (
-            rf"(?:charges?\s+)?{curr_sym_explicit}{h_space}(\d+(?:\.\d+)?){h_space}"
+            rf"{pf_prefix}{h_space}(\d+(?:\.\d+)?){h_space}"
             rf"(?:per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?{h_space}"
             rf"(?:for|if|on|when\s+ordering){h_space}(?:orders?\s+(?:of\s+)?(?:between\s+)?)?(\d+){h_space}(?:to|-){h_space}(\d+){h_space}(?:{unit_nouns})?"
         )
@@ -908,7 +920,7 @@ class InventoryNLPParser:
 
         # Open-ended top tier price-first: "$11 for orders of 1,000 units or more", "$11 for 1000+ units"
         pf_open_pat = (
-            rf"(?:charges?\s+)?{curr_sym_explicit}{h_space}(\d+(?:\.\d+)?){h_space}"
+            rf"{pf_prefix}{h_space}(\d+(?:\.\d+)?){h_space}"
             rf"(?:per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?{h_space}"
             rf"(?:for|if|on|when\s+ordering){h_space}(?:orders?\s+(?:of\s+)?)?(?:over\s+|at\s+least\s+)?(\d+){h_space}(?:{unit_nouns})?{h_space}"
             rf"(?:\+|or\s+more|and\s+above|\bmore\b)"

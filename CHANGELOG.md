@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 
 ---
 
+## [1.6.4] - 2026-11-08
+
+### Fixed
+- **Extended Unit Cost Phrasing Recognition in Semantic Extraction**:
+  - Resolved `Calculation Pending: Holding cost rate was provided as a percentage, but unit cost (purchase price) is missing` when queries express unit cost in diverse natural-language business and supply chain formats:
+    - Supplier/vendor charges: `supplier charges $12 per unit`, `vendor charges $12`, `charges $12 each`.
+    - Unit-of-one item/product costs: `the cost of each unit is $12`, `the price of each unit is $12`, `cost of an item is $12`.
+    - Prepositional pricing: `at $12 per unit`, `for $12 per unit`, `at a cost of $12 each`, `for a price of $12 per unit`.
+    - Asset & inventory valuation: `valued at $12 per unit`, `unit value is $12`, `value per unit of $12`.
+    - Colloquial equivalence: `each unit is $12`, `each product runs $12`.
+  - Added dedicated regex patterns in `InventoryNLPParser.extract_numbers_with_context()`, enabling autonomous computation of holding cost $H = I \times C$ across all variations without manual intervention.
+- **Interactive Inline Unit Cost Resolution for Missing Inputs**:
+  - When a query genuinely omits unit cost (e.g., *"Annual demand is 5,000 units. Ordering cost is $60 and holding cost is 20% of unit cost"*), the application no longer halts into a static error state.
+  - Added an interactive numerical input (`st.number_input` + `⚡ Apply Unit Cost & Calculate`) directly within the `Primary decision & financial variables` card in `app.py`.
+  - Seamlessly persists user-provided unit cost in `st.session_state["pending_manual_unit_cost"]` and passes `manual_input_overrides={"unit_cost": ...}` into `InventoryDecisionAgent.process_query()`, immediately computing EOQ ($Q^* = 500$), annual holding cost ($H = \$2.40$), and total annual cost ($TAC = \$61,200.00$).
+- **Cleaned Test Suite Duplication**:
+  - Restored clean single-definition test cases in `tests/test_nlp_stress_robustness.py`, verifying extended unit cost phrasings and manual input overrides.
+  - Test suite expanded to **142 passing automated tests** (100% pass rate).
+
+---
+
 ## [1.6.3] - 2026-11-08
 
 ### Fixed
