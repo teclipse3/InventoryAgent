@@ -610,26 +610,47 @@ class InventoryNLPParser:
         # -------------------------------------------------------------
         # 5. Holding Cost: Fixed vs Percentage Holding Cost
         # Distinguish:
+        # - combined percentage holding cost with embedded unit cost
         # - fixed holding cost ($/unit/year, Rs./unit/year, €/unit/year, etc.)
         # - percentage holding cost (% of price)
         # -------------------------------------------------------------
-        # Percentage holding cost
-        holding_pct_patterns = [
-            rf"(?:percent[a|e]?ge\s+hold[i]?ng\s+costs?t?|annual\s+hold[i]?ng\s+costs?t?\s+rate|anual\s+hold[i]?ng\s+costs?t?\s+rate|hold[i]?ng\s+costs?t?\s+rate|car?ry?ing\s+costs?t?\s+rate|car?ry?ing\s+rate|hold[i]?ng\s+rate|annual\s+hold[i]?ng\s+costs?t?|anual\s+hold[i]?ng\s+costs?t?|annual\s+car?ry?ing\s+costs?t?|anual\s+car?ry?ing\s+costs?t?|car?ry?ing\s+chag?re|car?ry?ing\s+charge|annual\s+car?ry?ing\s+charge|anual\s+car?ry?ing\s+charge|car?ry?ing\s+costs?t?|hold[i]?ng\s+costs?t?){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))?\s*{pct_word}",
-            rf"(?:hold[i]?ng\s+costs?t?|car?ry?ing\s+costs?t?){var_sym}\s*(?:rate\s+)?(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*{pct_word}",
-            rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))?\s*(?:annual\s+hold[i]?ng\s+costs?t?|anual\s+hold[i]?ng\s+costs?t?|annual\s+hold[i]?ng|car?ry?ing\s+costs?t?|hold[i]?ng\s+costs?t?|percent[a|e]?ge\s+hold[i]?ng\s+costs?t?|costs?t?\s+of\s+capital|car?ry?ing\s+chag?re|car?ry?ing\s+charge)",
-            rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))",
-            rf"hold[i]?ng\s+costs?t?\s+(?:rate\s+)?(?:is|equals)?\s*(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:unit\s+)?(?:costs?t?|price))?",
+        # 5a. Combined Holding Rate + Embedded Unit Cost Patterns
+        # Captures phrases where both the rate and unit cost appear together:
+        # e.g., "holding cost is 20% of unit cost ($25)", "holding cost is 20% of the $25 unit cost",
+        # "carrying cost is 20% of unit cost, which is $25", "holding cost is 20% of $50 purchase price"
+        combined_holding_unit_patterns = [
+            rf"(?:hold[i]?ng|car?ry?ing)\s+(?:costs?t?|rate|chag?re|charge)?{var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:the\s+)?(?:unit\s+|item\s+|product\s+|purchase\s+)?(?:costs?t?|price|value))?\s*(?:which\s+is|of|at|[:=]|\(|\s+)\s*\(?{curr_sym}\s*(\d+(?:\.\d+)?)\)?",
+            rf"(?:hold[i]?ng|car?ry?ing)\s+(?:costs?t?|rate|chag?re|charge)?{var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:the\s+)?)?\(?{curr_sym}\s*(\d+(?:\.\d+)?)\)?\s*(?:unit\s+|item\s+|product\s+|purchase\s+)?(?:costs?t?|price|value)",
         ]
-        for pat in holding_pct_patterns:
+        for pat in combined_holding_unit_patterns:
             m = re.search(pat, text_clean, re.IGNORECASE)
             if m:
-                pct = float(m.group(1))
-                inputs["holding_cost_rate"] = pct / 100.0 if pct > 1.0 else pct
+                pct_val = float(m.group(1))
+                inputs["holding_cost_rate"] = pct_val / 100.0 if pct_val > 1.0 else pct_val
                 inputs["percentage_holding_cost"] = inputs["holding_cost_rate"]
+                c_val = float(m.group(2))
+                inputs["unit_cost"] = c_val
+                inputs["unit_purchase_price"] = c_val
                 break
 
-        # Fixed holding cost
+        # 5b. Standalone Percentage holding cost
+        if "holding_cost_rate" not in inputs:
+            holding_pct_patterns = [
+                rf"(?:percent[a|e]?ge\s+hold[i]?ng\s+costs?t?|annual\s+hold[i]?ng\s+costs?t?\s+rate|anual\s+hold[i]?ng\s+costs?t?\s+rate|hold[i]?ng\s+costs?t?\s+rate|car?ry?ing\s+costs?t?\s+rate|car?ry?ing\s+rate|hold[i]?ng\s+rate|annual\s+hold[i]?ng\s+costs?t?|anual\s+hold[i]?ng\s+costs?t?|annual\s+car?ry?ing\s+costs?t?|anual\s+car?ry?ing\s+costs?t?|car?ry?ing\s+chag?re|car?ry?ing\s+charge|annual\s+car?ry?ing\s+charge|anual\s+car?ry?ing\s+charge|car?ry?ing\s+costs?t?|hold[i]?ng\s+costs?t?){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:of\s+(?:the\s+)?(?:unit\s+|item\s+|product\s+|purchase\s+)?(?:costs?t?|price))?\s*{pct_word}",
+                rf"(?:hold[i]?ng\s+costs?t?|car?ry?ing\s+costs?t?){var_sym}\s*(?:rate\s+)?(?:would\s+be|of|is|equals)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*{pct_word}",
+                rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:the\s+)?(?:unit\s+|item\s+|product\s+|purchase\s+)?(?:costs?t?|price))?\s*(?:annual\s+hold[i]?ng\s+costs?t?|anual\s+hold[i]?ng\s+costs?t?|annual\s+hold[i]?ng|car?ry?ing\s+costs?t?|hold[i]?ng\s+costs?t?|percent[a|e]?ge\s+hold[i]?ng\s+costs?t?|costs?t?\s+of\s+capital|car?ry?ing\s+chag?re|car?ry?ing\s+charge)",
+                rf"(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:the\s+)?(?:unit\s+|item\s+|product\s+|purchase\s+)?(?:costs?t?|price))",
+                rf"hold[i]?ng\s+costs?t?\s+(?:rate\s+)?(?:is|equals)?\s*(\d+(?:\.\d+)?)\s*{pct_word}\s*(?:of\s+(?:the\s+)?(?:unit\s+|item\s+|product\s+|purchase\s+)?(?:costs?t?|price))?",
+            ]
+            for pat in holding_pct_patterns:
+                m = re.search(pat, text_clean, re.IGNORECASE)
+                if m:
+                    pct = float(m.group(1))
+                    inputs["holding_cost_rate"] = pct / 100.0 if pct > 1.0 else pct
+                    inputs["percentage_holding_cost"] = inputs["holding_cost_rate"]
+                    break
+
+        # 5c. Fixed holding cost
         holding_dollar_patterns = [
             rf"fixed\s+hold[i]?ng\s+costs?t?{var_sym}\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*{pct_word})",
             rf"(?<!percentage\s)(?<!rate\s)(?:hold[i]?ng\s+costs?t?|car?ry?ing\s+costs?t?|storage\s+costs?t?|costs?t?\s+to\s+hold|costs?t?\s+to\s+store|car?ry?ing\s+chag?re|car?ry?ing\s+charge){var_sym}\s*(?:of|is|are|equals|would\s+be)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*{pct_word})",
@@ -658,10 +679,10 @@ class InventoryNLPParser:
                 break
 
         # -------------------------------------------------------------
-        # 7. Pricing & Costs (Newsvendor & Quantity Discount)
+        # 7. Pricing & Costs (Newsvendor & Quantity Discount & EOQ)
         # Distinguish:
         # - selling price
-        # - unit purchase price / purchase cost
+        # - unit purchase price / purchase cost / unit cost
         # - salvage value
         # - underage / shortage cost
         # - overage / excess cost
@@ -688,30 +709,51 @@ class InventoryNLPParser:
                 inputs["cost_of_overage"] = float(m.group(1))
                 break
 
-        # Unit purchase price / purchase cost
-        unit_cost_patterns = [
-            rf"(?:unit\s+purchase\s+price|purchase\s+costs?t?|unit\s+costs?t?|item\s+costs?t?|costs?t?\s+per\s+(?:unit|{unit_nouns})|acquisition\s+costs?t?|manufacturing\s+costs?t?|costs?t?\s+to\s+produce|costs?t?\s+to\s+manufacture|wholesale\s+costs?t?|wholesale\s+price|purchase\s+price|baseline\s+unit\s+purchase\s+price|baseline\s+price|base\s+price|regular\s+price|standard\s+price){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:buys?|purchas[e]?s?|purchased|bought)\s+(?:[\w\s]{{0,35}}?\s+)?(?:for|at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?:each|per)\s+(?:{unit_nouns}|[a-zA-Z-]{{2,25}})\s+costs?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
-            rf"(?<!order )(?<!orders )(?<!ordering )(?<!ordr )(?<!ordrs )(?<!ordring )\bcosts?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns})|to\s+manufacture|to\s+produce|to\s+make|to\s+buy|to\s+purchase)?(?!\s*(?:per\s+ord[e]?r|to\s+place))",
-            rf"(?:purchas[e]?d?|bought)\s+(?:for|at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns}))?",
-            rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:to\s+purchase|unit\s+costs?t?|purchase\s+costs?t?|costs?t?\s+per\s+(?:unit|{unit_nouns})|unit\s+purchase\s+price|per\s+(?:unit|{unit_nouns})\s+purchase|wholesale)",
-        ]
-        for pat in unit_cost_patterns:
-            m = re.search(pat, text_clean, re.IGNORECASE)
-            if m:
-                inputs["unit_cost"] = float(m.group(1))
-                inputs["unit_purchase_price"] = float(m.group(1))
-                break
+        # Unit purchase price / purchase cost / item cost
+        if "unit_cost" not in inputs:
+            unit_cost_patterns = [
+                # Explicit descriptors: unit cost, item cost, product cost, unit purchase price, etc.
+                rf"(?:unit\s+purchase\s+price|purchase\s+costs?t?|unit\s+costs?t?|item\s+costs?t?|product\s+costs?t?|component\s+costs?t?|costs?t?\s+per\s+(?:unit|{unit_nouns})|price\s+per\s+(?:unit|{unit_nouns})|unit\s+price|item\s+price|product\s+price|acquisition\s+costs?t?|manufacturing\s+costs?t?|costs?t?\s+to\s+produce|costs?t?\s+to\s+manufacture|wholesale\s+costs?t?|wholesale\s+price|purchase\s+price|baseline\s+unit\s+purchase\s+price|baseline\s+price|base\s+price|regular\s+price|standard\s+price){var_sym}\s*(?:would\s+be|of|is|equals)?\s*[:=]?\s*\(?{curr_sym}\s*(\d+(?:\.\d+)?)\)?(?!\s*{pct_word})",
+                # Parenthetical: e.g. "unit cost ($25.00)" or "cost ($25)"
+                rf"(?:unit\s+costs?t?|item\s+costs?t?|product\s+costs?t?|costs?t?|unit\s+price|purchase\s+price)\s*\(\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:\/(?:unit|{unit_nouns})|each)?\s*\)",
+                # "which is $25" / "valued at $25 per unit"
+                rf"(?:unit\s+costs?t?|item\s+costs?t?|product\s+costs?t?|purchase\s+price)\s*,\s*(?:which\s+is|valued\s+at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+                # "buys/purchases/bought for $25"
+                rf"(?:buys?|purchas[e]?s?|purchased|bought)\s+(?:[\w\s]{{0,35}}?\s+)?(?:for|at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+                # "each/per unit costs $25"
+                rf"(?:each|per)\s+(?:{unit_nouns}|[a-zA-Z-]{{2,25}})\s+costs?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+                # "costs $25 each / per unit" - with negative lookahead for % and per order
+                rf"(?<!order )(?<!orders )(?<!ordering )(?<!ordr )(?<!ordrs )(?<!ordring )\bcosts?t?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns})|to\s+manufacture|to\s+produce|to\s+make|to\s+buy|to\s+purchase)\b(?!\s*(?:per\s+ord[e]?r|to\s+place|{pct_word}))",
+                # "C = $25" / "c: $25" / "C = 25"
+                rf"\b[cC]\s*[:=]\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*{pct_word})",
+                # "purchased at $25"
+                rf"(?:purchas[e]?d?|bought)\s+(?:for|at)\s*{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each|per\s+(?:unit|{unit_nouns}))?",
+                # "$25 to purchase / $25 unit cost"
+                rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:to\s+purchase|unit\s+costs?t?|purchase\s+costs?t?|costs?t?\s+per\s+(?:unit|{unit_nouns})|unit\s+purchase\s+price|per\s+(?:unit|{unit_nouns})\s+purchase|wholesale)",
+                # Standalone "Cost is $25" / "Cost: $25" / "Cost = $25" (Strict negative lookbehinds so it does NOT match ordering, receiving, setup, holding, etc.)
+                rf"(?<!order )(?<!orders )(?<!ordering )(?<!ordr )(?<!ordrs )(?<!ordring )(?<!setup )(?<!set-up )(?<!receiving )(?<!transportation )(?<!holding )(?<!carrying )(?<!shortage )(?<!underage )(?<!overage )(?<!fixed )\bcosts?t?{var_sym}\s*(?:is|are|equals|of|would\s+be)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)\b(?!\s*(?:per\s+ord[e]?r|to\s+place|{pct_word}))",
+            ]
+            for pat in unit_cost_patterns:
+                m = re.search(pat, text_clean, re.IGNORECASE)
+                if m:
+                    inputs["unit_cost"] = float(m.group(1))
+                    inputs["unit_purchase_price"] = float(m.group(1))
+                    break
 
         # Selling price
         price_patterns = [
             rf"\b(?:selling\s+price|retail\s+price|sale\s+price|retail\s+value|customer\s+price|revenue\s+per\s+(?:unit|{unit_nouns}))\b\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
             rf"(?:sells?|selling)\s+(?:[\w\s]{{0,30}}?\s+)?(?:for|at)\s+{curr_sym}\s*(\d+(?:\.\d+)?)",
             rf"{curr_sym}\s*(\d+(?:\.\d+)?)\s*(?:each\s+retail|retail|selling\s+price)",
-            rf"(?<!wholesale )(?<!purchase )(?<!baseline )(?<!regular )(?<!standard )\bprice\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+            rf"(?<!wholesale )(?<!purchase )(?<!baseline )(?<!regular )(?<!standard )(?<!unit )\bprice\s*(?:of|is|equals)?\s*[:=]?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
         ]
         for pat in price_patterns:
+            m = re.search(pat, text_clean, re.IGNORECASE)
+            if m:
+                inputs["selling_price"] = float(m.group(1))
+                break
+
+        # Salvage value
             m = re.search(pat, text_clean, re.IGNORECASE)
             if m:
                 inputs["selling_price"] = float(m.group(1))
@@ -863,6 +905,30 @@ class InventoryNLPParser:
                     {"min_qty": break_q, "max_qty": None, "unit_price": price2},
                 ]
 
+        # -------------------------------------------------------------
+        # 10. Autonomous Holding Cost Computation in NLP
+        # When holding cost rate (% of unit cost) and unit cost are provided,
+        # calculate holding cost H = (holding_cost_rate) * (unit_cost)
+        # -------------------------------------------------------------
+        if "holding_cost_rate" in inputs and "holding_cost" not in inputs:
+            u_cost = (
+                inputs.get("unit_cost")
+                or inputs.get("unit_purchase_price")
+                or inputs.get("unit_price")
+                or inputs.get("selling_price")
+            )
+            if u_cost is not None and u_cost > 0:
+                h_calc = inputs["holding_cost_rate"] * u_cost
+                inputs["holding_cost"] = h_calc
+                inputs["fixed_holding_cost"] = h_calc
+                if "unit_cost" not in inputs:
+                    inputs["unit_cost"] = u_cost
+                    inputs["unit_purchase_price"] = u_cost
+                inputs["holding_cost_calculation_note"] = (
+                    f"Calculated annual holding cost H = ${h_calc:,.2f} "
+                    f"({inputs['holding_cost_rate']*100:.1f}% of ${u_cost:,.2f} unit cost)"
+                )
+
         return inputs
 
 
@@ -929,8 +995,10 @@ class InventoryDecisionAgent:
         input_notes: List[str] = []
         if "demand_conversion_note" in extracted_inputs:
             input_notes.append(extracted_inputs["demand_conversion_note"])
+        if "holding_cost_calculation_note" in extracted_inputs:
+            input_notes.append(extracted_inputs["holding_cost_calculation_note"])
         for k, v in extracted_inputs.items():
-            if k != "demand_conversion_note":
+            if k not in ("demand_conversion_note", "holding_cost_calculation_note"):
                 input_notes.append(f"Extracted {k} = {v}")
 
         # -------------------------------------------------------------
@@ -1026,8 +1094,19 @@ class InventoryDecisionAgent:
         ordering_cost = inputs.get("ordering_cost") or inputs.get("setup_cost")
         holding_cost = inputs.get("holding_cost")
         holding_rate = inputs.get("holding_cost_rate")
-        unit_cost = inputs.get("unit_cost") or inputs.get("unit_purchase_price")
+        unit_cost = (
+            inputs.get("unit_cost")
+            or inputs.get("unit_purchase_price")
+            or inputs.get("unit_price")
+            or inputs.get("selling_price")
+        )
         lead_time = inputs.get("lead_time_days") or inputs.get("lead_time")
+
+        if holding_cost is None and holding_rate is not None and unit_cost is not None:
+            try:
+                holding_cost = float(holding_rate) * float(unit_cost)
+            except (ValueError, TypeError):
+                pass
 
         res = calculate_eoq(
             demand=demand,
@@ -1340,6 +1419,12 @@ class InventoryDecisionAgent:
             intermediate = []
             if inputs.get("demand_conversion_note"):
                 intermediate.append(f"0. Demand Normalization: {inputs['demand_conversion_note']}")
+            if inputs.get("holding_cost_calculation_note"):
+                intermediate.append(f"0b. Holding Cost Computation: {inputs['holding_cost_calculation_note']}")
+            elif results.get("holding_cost_rate") and results.get("unit_cost"):
+                rate = float(results["holding_cost_rate"])
+                uc = float(results["unit_cost"])
+                intermediate.append(f"0b. Holding Cost Computation: H = I * C = {rate*100:.1f}% * ${uc:,.2f} = ${h:,.2f} per unit/year")
             intermediate.extend([
                 f"1. Annual Demand (D) = {d:,.0f} units/year",
                 f"2. Setup/Ordering Cost (S) = ${s:,.2f} per order",

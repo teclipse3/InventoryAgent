@@ -465,12 +465,12 @@ STRESS_TEST_SCENARIOS = {
 # Sidebar Controls & Navigation
 # ---------------------------------------------------------------------------
 
-APP_VERSION = "v1.6.1"
+APP_VERSION = "v1.6.2"
 CHANGELOG_URL = "https://github.com/teclipse3/InventoryAgent/blob/main/CHANGELOG.md"
 
 st.sidebar.title("📦 Navigation & Settings")
 st.sidebar.caption(
-    f"🏷️ Version: [**`{APP_VERSION}`**]({CHANGELOG_URL}) | Core SemVer | 2026-11-07",
+    f"🏷️ Version: [**`{APP_VERSION}`**]({CHANGELOG_URL}) | Core SemVer | 2026-11-08",
     help="Click to view the version change log on GitHub",
 )
 
@@ -1066,6 +1066,18 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
             lt_disp = "Not specified"
             lt_sub = "Optional delivery window"
 
+        h_rate = res.get("holding_cost_rate") if res.get("holding_cost_rate") is not None else inp.get("holding_cost_rate")
+        c_unit = res.get("unit_cost") if res.get("unit_cost") is not None else inp.get("unit_cost")
+        if h_rate is not None and c_unit is not None and float(c_unit) > 0:
+            h_sub = f"{float(h_rate)*100:.1f}% of ${float(c_unit):,.2f} cost"
+            h_disp = f"${h_val:,.2f}"
+        elif h_rate is not None and h_val <= 0:
+            h_disp = f"{float(h_rate)*100:.1f}% rate"
+            h_sub = "Awaiting unit cost"
+        else:
+            h_disp = f"${h_val:,.2f}"
+            h_sub = "Carrying cost per unit-year"
+
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.markdown(
             render_kpi_card("Annual Demand (D)", f"{d_val:,.0f} units", d_sub, "input"),
@@ -1083,8 +1095,8 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
         c3.markdown(
             render_kpi_card(
                 "Holding Cost (H)",
-                f"${h_val:,.2f}",
-                "Carrying cost per unit-year",
+                h_disp,
+                h_sub,
                 "input",
             ),
             unsafe_allow_html=True,
@@ -2907,6 +2919,11 @@ def render_decision_agent_tabs(pipeline_response: AgentPipelineResponse):
         ) or pipeline_response.extracted_inputs.get("demand_conversion_note")
         if conv_note:
             st.info(f"🔄 **Demand Normalization Applied**: {conv_note}")
+        hold_note = inputs.get(
+            "holding_cost_calculation_note"
+        ) or pipeline_response.extracted_inputs.get("holding_cost_calculation_note")
+        if hold_note:
+            st.info(f"💡 **Holding Cost Computation**: {hold_note}")
         if inputs:
             items = [
                 {"Parameter": k, "Extracted Value": str(v)}

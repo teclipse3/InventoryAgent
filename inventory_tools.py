@@ -358,14 +358,20 @@ def calculate_eoq(
 
     # Determine holding cost per unit per year
     h_rate = None
+    if holding_cost_rate is not None:
+        try:
+            h_rate = float(holding_cost_rate)
+        except (TypeError, ValueError):
+            raise ValueError(f"holding_cost_rate must be a valid numerical value. Received: {holding_cost_rate}")
     c_unit = None
+    if unit_cost is not None:
+        try:
+            c_unit = float(unit_cost)
+        except (TypeError, ValueError):
+            raise ValueError(f"unit_cost must be a valid numerical value. Received: {unit_cost}")
+
     if holding_cost is None:
-        if holding_cost_rate is not None and unit_cost is not None:
-            try:
-                h_rate = float(holding_cost_rate)
-                c_unit = float(unit_cost)
-            except (TypeError, ValueError):
-                raise ValueError("holding_cost_rate and unit_cost must be valid numerical values.")
+        if h_rate is not None and c_unit is not None:
             if h_rate <= 0:
                 raise ValueError(f"holding_cost_rate must be strictly positive (> 0). Received: {h_rate}")
             if c_unit <= 0:

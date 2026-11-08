@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 
 ---
 
+## [1.6.2] - 2026-11-08
+
+### Fixed
+- **Autonomous Holding Cost Computation for Percentage-Based Inventory Queries**:
+  - Resolved `Calculation Pending: Must provide either 'holding_cost' directly or both 'holding_cost_rate' and 'unit_cost'. Missing numerical inputs cannot be invented.` when queries specify holding costs as a percentage of unit cost.
+  - Implemented autonomous NLP calculation in `InventoryNLPParser.extract_numbers_with_context()`, computing $H = I \times C$ (`inputs["holding_cost"] = holding_cost_rate * unit_cost`) in Step 3 (Semantic Input Extraction) whenever both parameters are identified.
+  - Added dedicated combined regex extraction patterns to parse rate and embedded unit cost in single compound clauses:
+    - Parenthetical values: `holding cost is 20% of unit cost ($25)` / `cost ($25.00)`
+    - Embedded currency descriptors: `holding cost is 20% of the $25 unit cost` / `carrying cost is 20% of $50 purchase price`
+    - Relative and appositive clauses: `holding cost is 20% of unit cost, which is $25` / `holding cost is 20% of unit cost of $25`
+  - Broadened unit cost synonym recognition across single-price inventory models:
+    - Recognized `unit price`, `product cost`, `item cost`, `price per unit`, `cost per unit`, `component cost`, and variable notation `C = $25` / `C = 25`.
+    - Added strict negative lookahead guards `(?!\s*(?:%|percent|percentage))` and negative lookbehinds (`order`, `setup`, `receiving`, `transportation`, `holding`) preventing cost tokens from accidentally capturing carrying percentages or setup fees as unit costs.
+  - Implemented resilient fallback in `_run_eoq` allowing `unit_cost` to map from `unit_purchase_price`, `unit_price`, or `selling_price` when explicit purchase cost keys are omitted.
+  - Updated persistent dashboard KPI card for Holding Cost (H) to display computed holding cost (`$5.00`) alongside contextual derivation subtitle (`20.0% of $25.00 cost`) or `"Awaiting unit cost"` if unit cost is not provided.
+  - Surfaced `0b. Holding Cost Computation` in architectural Step 5 mathematical intermediate steps and Step 3 semantic extraction notes.
+- **Test Suite Expansion**:
+  - Added `TestNLPHoldingCostPercentageCalculations` in `tests/test_nlp_stress_robustness.py` with 14 automated test cases covering diverse international currencies (€, £, $, CHF), parenthetical syntaxes, embedded unit cost phrases, and variable assignments, expanding the test suite from 116 to **130 passing tests** (100% pass rate).
+
+---
+
 ## [1.6.1] - 2026-11-07
 
 ### Added
