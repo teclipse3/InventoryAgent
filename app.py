@@ -465,7 +465,7 @@ STRESS_TEST_SCENARIOS = {
 # Sidebar Controls & Navigation
 # ---------------------------------------------------------------------------
 
-APP_VERSION = "v1.6.2"
+APP_VERSION = "v1.6.3"
 CHANGELOG_URL = "https://github.com/teclipse3/InventoryAgent/blob/main/CHANGELOG.md"
 
 st.sidebar.title("📦 Navigation & Settings")
@@ -1356,7 +1356,15 @@ def render_persistent_variable_dashboard(response: AgentPipelineResponse):
     )
 
     if has_calc_error:
-        st.warning(f"⚠️ Calculation Pending: {res['error']}")
+        err_msg = str(res.get("error", ""))
+        if "Must provide either 'holding_cost' directly or both 'holding_cost_rate' and 'unit_cost'" in err_msg:
+            st.warning(
+                "⚠️ **Calculation Pending**: Holding cost rate was provided as a percentage, but unit cost "
+                "(purchase price) is missing. Please provide the unit cost (e.g. *'unit cost is $25'*) or specify "
+                "holding cost as a dollar amount (e.g. *'holding cost is $5/unit/year'*)."
+            )
+        else:
+            st.warning(f"⚠️ Calculation Pending: {res['error']}")
         return
 
     if m_key == "eoq":
@@ -3008,10 +3016,17 @@ def render_decision_agent_tabs(pipeline_response: AgentPipelineResponse):
         )
 
         if has_calc_error:
-            st.error(f"Calculation Error: {res['error']}")
-            st.warning(
-                "Please provide all required numerical inputs in the question or select a preset example."
-            )
+            err_msg = str(res.get("error", ""))
+            if "Must provide either 'holding_cost' directly or both 'holding_cost_rate' and 'unit_cost'" in err_msg:
+                st.error("Calculation Pending: Holding cost rate is specified as a percentage, but unit cost (purchase price) is missing.")
+                st.warning(
+                    "Please provide the unit cost (e.g. 'unit cost is $25') or specify holding cost as a dollar amount (e.g. 'holding cost is $5/unit/year')."
+                )
+            else:
+                st.error(f"Calculation Error: {res['error']}")
+                st.warning(
+                    "Please provide all required numerical inputs in the question or select a preset example."
+                )
         else:
             # Display Key Metrics
             m_key = pipeline_response.model_key

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning (SemVer 2.0.0)](https://semver.
 
 ---
 
+## [1.6.3] - 2026-11-08
+
+### Fixed
+- **Price-First Quantity Discount Schedule Extraction & Model Classification**:
+  - Resolved `Calculation Pending: Must provide either 'holding_cost' directly or both 'holding_cost_rate' and 'unit_cost'. Missing numerical inputs cannot be invented.` when queries provide tiered pricing schedules where the unit price precedes the order quantity tier condition (e.g., *"The supplier charges $12 per unit for orders below 500 units, $11.50 for 500-999 units, and $11 for orders of 1,000 units or more"*).
+  - Added dedicated price-first regex extraction patterns in `InventoryNLPParser.extract_numbers_with_context()`:
+    - Bounded below/under tiers: `charges $12 per unit for orders below 500 units` -> `min_qty: 0, max_qty: 499, unit_price: 12.0`
+    - Bounded range tiers: `$11.50 for 500-999 units` -> `min_qty: 500, max_qty: 999, unit_price: 11.50`
+    - Open-ended top tier: `$11 for orders of 1,000 units or more` -> `min_qty: 1000, max_qty: None, unit_price: 11.0`
+  - Enforced horizontal whitespace constraints (`[^\S\r\n]*`) and mandatory prepositional connectives (`for`, `if`, `on`, `when ordering`) to prevent multiline cross-row contamination in tabular discount schedules.
+  - Corrected quantity-first regexes requiring explicit prepositions (`at`, `@`, `for`, `:`) or explicit currency symbols before prices, preventing hyphenated quantity ranges (e.g., `500-999`) from matching the last digit as an unintended price.
+- **Autonomous Baseline Price Derivation & Holding Cost Calculation**:
+  - Automatically derived baseline unit cost `inputs["unit_cost"]` from the lowest quantity tier (`tiers[0]["unit_price"]`, $12.00) when not explicitly set elsewhere in the query.
+  - Autonomously computed annual holding cost $H = I \times C_{base} = 0.20 \times \$12.00 = \$2.40$ during Step 3 semantic extraction.
+  - Implemented automatic pipeline routing in `InventoryDecisionAgent.process_query()`: queries containing $\ge 2$ detected price tiers without an explicit manual model override are autonomously classified and routed to the Quantity Discount Model with high confidence.
+  - Added resilient fallback in `_run_eoq` allowing manual EOQ evaluation on tiered pricing queries without throwing missing input exceptions, evaluating EOQ at baseline price ($Q^* = 500$ units, total annual cost = $61,200.00).
+- **Educational Calculation Pending Guidance in Streamlit UI**:
+  - Enhanced warning and error banners in `render_persistent_variable_dashboard` and Tab 5 (Calculation & Visualization) in `app.py` to display clear, actionable guidance whenever holding cost rate is specified without unit price or pricing tiers, advising users to supply either unit price or direct dollar holding cost.
+- **Test Suite Expansion**:
+  - Added `TestPriceFirstTieredQuantityDiscountCalculations` in `tests/test_nlp_stress_robustness.py` verifying exact prompt extraction, autonomous Quantity Discount classification ($Q^* = 1,000$ units, total annual cost = $56,400.00, $4,800.00 savings), manual EOQ fallback, and syntax variations, expanding the test suite to **133 passed tests** (100% pass rate).
+
+---
+
 ## [1.6.2] - 2026-11-08
 
 ### Fixed

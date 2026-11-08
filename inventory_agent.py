@@ -128,6 +128,11 @@ class InventoryNLPParser:
             r"(?:[\$€£₹¥]|rs\.?|inr|cad\s*\$?|aud\s*\$?|usd\s*\$?|chf|gbp|eur)?\s*\d+(\.\d+)?\s+if\s+ord[e]?r\s+at\s+least",
             r"percent[a|e]?ge\s+hold[i]?ng\s+costs?t?",
             r"fixed\s+hold[i]?ng\s+costs?t?",
+            r"charges?\s+(?:[\$€£₹¥]|usd|rs\.?|eur)?\s*\d+(?:\.\d+)?\s*(?:per\s+(?:unit|item|product|piece))?\s*for\s+orders?\s+(?:below|under|less\s+than)",
+            r"(?:below|under|less\s+than)\s+\d+\s+units?.*?for\s+\d+[\s-]+\d+\s+units?",
+            r"\d+\s*(?:to|-)\s*\d+\s+units?.*?(?:\d+\s+units?\s+or\s+more|\d+\+)",
+            r"(?:[\$€£₹¥]|usd|rs\.?|eur)?\s*\d+(?:\.\d+)?\s+for\s+\d+[\s-]+\d+",
+            r"(?:[\$€£₹¥]|usd|rs\.?|eur)?\s*\d+(?:\.\d+)?\s+for\s+(?:orders?\s+of\s+)?\d+\s*(?:\+|or\s+more)",
         ],
         "fixed_period_review": [
             r"f[i|y]xed[\s-]per[i]?od",
@@ -211,13 +216,13 @@ class InventoryNLPParser:
         # Secondary context cues
         if re.search(r"salv[a|i]?ge|unsold|und[e]?rage|ov[e]?rage|perish[a|i]ble|season[a]?l", text_lower):
             scores["newsvendor"] += 4.0
-        if re.search(r"\bt[i|e]ers?\b|pr[i|y]ce\s*bre[a]?k|quant[i|y]ty\s*bre[a]?k|discou?nt", text_lower):
+        if re.search(r"\bt[i|e]ers?\b|pr[i|y]ce\s*bre[a]?k|quant[i|y]ty\s*bre[a]?k|discou?nt|charges?\s+[\$€£₹¥]?\d+.*?(?:below|under|\d+[\s-]+\d+|\bor\s+more\b)", text_lower):
             scores["quantity_discount"] += 4.0
         if re.search(r"re[v]?e?i[e]?w\s*per[i]?od|re[v]?e?i[e]?wed\s*ev[e]?ry|ord[e]?r[\s-]up[\s-]to|targ[e]?t\s*inve?nt[o|e]ry|re[v]?e?i[e]?ws?\s+inve?nt[o|e]ry", text_lower):
             scores["fixed_period_review"] += 4.0
         if re.search(r"re[\s-]?ord[e]?r\s*po[i]?nt|saf[e|t]ty\s*stock|safty\s*stock|safety\s*buffer", text_lower) and not re.search(r"per[i]?od[i]?c|re[v]?e?i[e]?w", text_lower):
             scores["safety_stock_rop"] += 4.0
-        if re.search(r"set[\s-]?up\s*costs?t?|ord[e]?r(?:ing)?\s*costs?t?|set[\s-]?up\s*exp[e]?ns[e]?|costs?t?\s*per\s*ord[e]?r|batch\s*s[i]?ze", text_lower) and not re.search(r"\bt[i|e]ers?\b", text_lower):
+        if re.search(r"set[\s-]?up\s*costs?t?|ord[e]?r(?:ing)?\s*costs?t?|set[\s-]?up\s*exp[e]?ns[e]?|costs?t?\s*per\s*ord[e]?r|batch\s*s[i]?ze", text_lower) and not re.search(r"\bt[i|e]ers?\b|charges?\s+[\$€£₹¥]?\d+", text_lower):
             scores["eoq"] += 2.0
 
         best_model = max(scores, key=scores.get)
@@ -260,6 +265,7 @@ class InventoryNLPParser:
             r"hectoliters?|hectolitres?)"
         )
         curr_sym = r"(?:[\$€£₹¥]|rs\.?|inr|cad\s*\$?|aud\s*\$?|usd\s*\$?|chf|gbp|eur)?"
+        curr_sym_explicit = r"(?:[\$€£₹¥]|rs\.?|inr|cad\s*\$?|aud\s*\$?|usd\s*\$?|chf|gbp|eur)"
         pct_word = r"(?:%|percent|percentage)"
         annual_timeframes = r"(?<!semi[\s-])(?<!semi)(?<!bi[\s-])(?<!bi)\b(?:annually|anuall?y|annual|anual|yearly|yeerly|per\s+year|each\s+year|a\s+year|every\s+year|per\s+annum|\/\s*year|\/\s*yr\b)"
         monthly_timeframes = r"(?:monthly|mothly|montly|per\s+month|each\s+month|a\s+month|every\s+month|\/\s*month|\/\s*mo\b)"
@@ -869,30 +875,77 @@ class InventoryNLPParser:
         # 9. Quantity Discount Tiers (Quantity breaks & unit prices)
         # -------------------------------------------------------------
         tiers = []
+
+        # 9a. Price-First Tier Patterns
+        # Captures schedules where the unit price precedes the quantity tier threshold:
+        # e.g., "charges $12 per unit for orders below 500 units, $11.50 for 500-999 units, and $11 for orders of 1,000 units or more"
+        # Must stay on the same line (no spanning across newlines) and require explicit preposition (for/if/on/when)
+        h_space = r"[^\S\r\n]*"
+        pf_below_pat = (
+            rf"(?:charges?\s+)?{curr_sym_explicit}{h_space}(\d+(?:\.\d+)?){h_space}"
+            rf"(?:per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?{h_space}"
+            rf"(?:for|if|on|when\s+ordering){h_space}(?:orders?\s+(?:of\s+)?)?(?:below|under|less\s+than){h_space}"
+            rf"(\d+){h_space}(?:{unit_nouns})?"
+        )
+        for m in re.finditer(pf_below_pat, text_clean, re.IGNORECASE):
+            price = float(m.group(1))
+            max_q = float(m.group(2)) - 1.0
+            if not any(t["min_qty"] == 0.0 and t["max_qty"] == max_q for t in tiers):
+                tiers.append({"min_qty": 0.0, "max_qty": max_q, "unit_price": price})
+
+        # Bounded range price-first: "$11.50 for 500-999 units", "charges $11.50 per unit for 500 to 999 units"
+        pf_range_pat = (
+            rf"(?:charges?\s+)?{curr_sym_explicit}{h_space}(\d+(?:\.\d+)?){h_space}"
+            rf"(?:per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?{h_space}"
+            rf"(?:for|if|on|when\s+ordering){h_space}(?:orders?\s+(?:of\s+)?(?:between\s+)?)?(\d+){h_space}(?:to|-){h_space}(\d+){h_space}(?:{unit_nouns})?"
+        )
+        for m in re.finditer(pf_range_pat, text_clean, re.IGNORECASE):
+            price = float(m.group(1))
+            min_q = float(m.group(2))
+            max_q = float(m.group(3))
+            if not any(t["min_qty"] == min_q for t in tiers):
+                tiers.append({"min_qty": min_q, "max_qty": max_q, "unit_price": price})
+
+        # Open-ended top tier price-first: "$11 for orders of 1,000 units or more", "$11 for 1000+ units"
+        pf_open_pat = (
+            rf"(?:charges?\s+)?{curr_sym_explicit}{h_space}(\d+(?:\.\d+)?){h_space}"
+            rf"(?:per\s+(?:unit|{unit_nouns})|\/{unit_nouns})?{h_space}"
+            rf"(?:for|if|on|when\s+ordering){h_space}(?:orders?\s+(?:of\s+)?)?(?:over\s+|at\s+least\s+)?(\d+){h_space}(?:{unit_nouns})?{h_space}"
+            rf"(?:\+|or\s+more|and\s+above|\bmore\b)"
+        )
+        for m in re.finditer(pf_open_pat, text_clean, re.IGNORECASE):
+            price = float(m.group(1))
+            min_q = float(m.group(2))
+            if not any(t["min_qty"] == min_q for t in tiers):
+                tiers.append({"min_qty": min_q, "max_qty": None, "unit_price": price})
+
+        # 9b. Quantity-First Tier Patterns
         # Pattern 1: Bounded ranges, e.g. "0 to 499 units at $25", "500 - 999: $22", "0 to 4999 kg at € 5.00"
-        bounded_matches = re.findall(
-            rf"(\d+)\s*(?:to|-)\s*(\d+)\s*(?:{unit_nouns})?\s*(?:at|@|costs?t?|for|:)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+        bounded_matches = re.finditer(
+            rf"(\d+)\s*(?:to|-)\s*(\d+)\s*(?:{unit_nouns})?\s*(?:(?:at|@|costs?t?|for|:)\s*{curr_sym}|{curr_sym_explicit})\s*(\d+(?:\.\d+)?)",
             text_clean,
             re.IGNORECASE,
         )
         for bm in bounded_matches:
-            tiers.append({"min_qty": float(bm[0]), "max_qty": float(bm[1]), "unit_price": float(bm[2])})
+            min_q = float(bm.group(1))
+            max_q = float(bm.group(2))
+            price = float(bm.group(3))
+            if not any(t["min_qty"] == min_q for t in tiers):
+                tiers.append({"min_qty": min_q, "max_qty": max_q, "unit_price": price})
 
         # Pattern 2: Open-ended top tier, e.g. "1000+ units at $20", "1000 or more units at $20", "over 1000 units at $20"
-        open_matches = re.findall(
-            rf"(?:over\s+)?(\d+)\s*(?:\+|or\s+more|and\s+above)\s*(?:{unit_nouns})?\s*(?:at|@|costs?t?|for|:)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)",
+        open_matches = re.finditer(
+            rf"(?:over\s+)?(\d+)\s*(?:\+|or\s+more|and\s+above)\s*(?:{unit_nouns})?\s*(?:(?:at|@|costs?t?|for|:)\s*{curr_sym}|{curr_sym_explicit})\s*(\d+(?:\.\d+)?)",
             text_clean,
             re.IGNORECASE,
         )
         for om in open_matches:
-            min_q = float(om[0])
-            price = float(om[1])
+            min_q = float(om.group(1))
+            price = float(om.group(2))
             if not any(t["min_qty"] == min_q for t in tiers):
                 tiers.append({"min_qty": min_q, "max_qty": None, "unit_price": price})
 
-        if tiers:
-            inputs["tiers"] = sorted(tiers, key=lambda t: t["min_qty"])
-        else:
+        if not tiers:
             # Check for alternative price break patterns: "under 500: $20, 500 or more: $18"
             under_m = re.search(rf"(?:under|below|less\s+than)\s*(\d+)\s*(?:{unit_nouns})?\s*[:=]?\s*(?:at|is)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)", text_clean, re.IGNORECASE)
             over_m = re.search(rf"(\d+)\s*(?:or\s+more|\+)\s*(?:{unit_nouns})?\s*[:=]?\s*(?:at|is)?\s*{curr_sym}\s*(\d+(?:\.\d+)?)", text_clean, re.IGNORECASE)
@@ -900,10 +953,19 @@ class InventoryNLPParser:
                 break_q = float(under_m.group(1))
                 price1 = float(under_m.group(2))
                 price2 = float(over_m.group(2))
-                inputs["tiers"] = [
+                tiers = [
                     {"min_qty": 0.0, "max_qty": break_q - 1.0, "unit_price": price1},
                     {"min_qty": break_q, "max_qty": None, "unit_price": price2},
                 ]
+
+        if tiers:
+            sorted_tiers = sorted(tiers, key=lambda t: t["min_qty"])
+            inputs["tiers"] = sorted_tiers
+            # Set baseline unit price from lowest quantity tier if not explicitly set or <= 0
+            if ("unit_cost" not in inputs or inputs.get("unit_cost", 0) <= 0) and sorted_tiers:
+                base_p = sorted_tiers[0]["unit_price"]
+                inputs["unit_cost"] = base_p
+                inputs["unit_purchase_price"] = base_p
 
         # -------------------------------------------------------------
         # 10. Autonomous Holding Cost Computation in NLP
@@ -991,6 +1053,17 @@ class InventoryDecisionAgent:
         extracted_inputs = self.parser.extract_numbers_with_context(cleaned_question)
         if manual_input_overrides:
             extracted_inputs.update(manual_input_overrides)
+
+        # Autonomous Routing: If 2 or more price tiers are present in the question and user did not
+        # specify a manual model override, structurally route to Quantity Discount Model
+        if not manual_model_override and len(extracted_inputs.get("tiers", [])) >= 2 and model_key != "quantity_discount":
+            model_key = "quantity_discount"
+            model_name = "Quantity Discount Model"
+            confidence = max(confidence, 0.95)
+            rationale = (
+                f"Autonomous Routing: Extracted {len(extracted_inputs['tiers'])} tiered price schedules; "
+                f"routed to Quantity Discount Model."
+            )
 
         input_notes: List[str] = []
         if "demand_conversion_note" in extracted_inputs:
@@ -1100,6 +1173,8 @@ class InventoryDecisionAgent:
             or inputs.get("unit_price")
             or inputs.get("selling_price")
         )
+        if unit_cost is None and inputs.get("tiers"):
+            unit_cost = inputs["tiers"][0]["unit_price"]
         lead_time = inputs.get("lead_time_days") or inputs.get("lead_time")
 
         if holding_cost is None and holding_rate is not None and unit_cost is not None:
@@ -1474,6 +1549,11 @@ class InventoryDecisionAgent:
             intermediate = []
             if inputs.get("demand_conversion_note"):
                 intermediate.append(f"0. Demand Normalization: {inputs['demand_conversion_note']}")
+            if inputs.get("holding_cost_calculation_note"):
+                intermediate.append(f"0b. Holding Cost Computation: {inputs['holding_cost_calculation_note']}")
+            elif results.get("holding_cost_rate"):
+                rate = float(results["holding_cost_rate"])
+                intermediate.append(f"0b. Holding Cost Specification: Holding cost rate is {rate*100:.1f}% of unit price for each tier (H_i = {rate*100:.1f}% * C_i)")
             intermediate.extend([
                 f"1. Base Tier Total Cost = ${inter.get('base_tier_cost', 0.0):,.2f}",
                 f"2. Evaluated {len(results.get('tier_evaluations', []))} discount pricing tiers balancing purchase, ordering, and holding costs.",
